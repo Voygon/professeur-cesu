@@ -21,6 +21,10 @@ dependencies:
   timezone: ^0.10.1
   intl: ^0.19.0
   cupertino_icons: ^1.0.8
+  local_auth: ^2.3.0
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+  encrypt: ^5.0.3
 
 dev_dependencies:
   flutter_test:

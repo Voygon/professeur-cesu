@@ -80,6 +80,16 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     );
   }
 
+  Future<void> remettreEnAttente(int coursId) async {
+    await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
+      CoursCompanion(
+        statut: Value(StatutCours.prevu.toDb()),
+        montant: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<void> annulerCours(int coursId, {String? notes}) async {
     await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
       CoursCompanion(
@@ -161,6 +171,9 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         elevesId: Value(eleve.elevesId),
         datePrevue: Value(datePrevue),
         statut: Value(StatutCours.prevu.toDb()),
+        dureeReelle: eleve.dureeCours != null
+            ? Value(eleve.dureeCours)
+            : const Value.absent(),
       ));
 
       return true;
@@ -178,6 +191,11 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
       if (await planifierCoursSemaine(eleve, lundiSemaine)) nbCrees++;
     }
     return nbCrees;
+  }
+
+  Future<void> deplacerCours(int coursId, DateTime nouvelleDatePrevue) async {
+    await (update(cours)..where((c) => c.coursId.equals(coursId)))
+        .write(CoursCompanion(datePrevue: Value(nouvelleDatePrevue)));
   }
 
   Future<bool> updateCours(CoursCompanion cour) {

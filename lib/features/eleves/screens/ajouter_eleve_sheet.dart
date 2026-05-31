@@ -1,12 +1,12 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:professeur_cesu/shared/models/eleve_avec_payeur.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/validators/eleve_validator.dart';
 import '../../../core/validators/payeur_validator.dart';
 import '../../../shared/models/enums.dart';
 import '../../eleves/providers/eleves_provider.dart';
+import '../../parametres/providers/tarifs_provider.dart';
 import '../../../shared/models/eleve_avec_payeur.dart';
 
 class AjouterEleveSheet extends ConsumerStatefulWidget {
@@ -31,6 +31,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
       _nomEleveCtrl.text = ep.eleve.nom;
       _adresseEleveCtrl.text = ep.eleve.adress;
       _telEleveCtrl.text = ep.eleve.telephone;
+      _dureeCours = ep.eleve.dureeCours;
       _hebdo = ep.eleve.hebdo;
       if (ep.eleve.jourSemaine != null) {
         _jourSemaine = JourSemaine.fromValeur(ep.eleve.jourSemaine!);
@@ -48,6 +49,11 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
       _adressePayeurCtrl.text = ep.payeur.adress;
       _telPayeurCtrl.text = ep.payeur.telephone;
       _cesuPlus = ep.payeur.cesuPlus;
+      // Détecte si l'élève est son propre payeur
+      if (ep.payeur.prenom == ep.eleve.prenom &&
+          ep.payeur.nom == ep.eleve.nom) {
+        _eleveEstPayeur = true;
+      }
     }
   }
 
@@ -61,6 +67,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
   final _nomEleveCtrl = TextEditingController();
   final _adresseEleveCtrl = TextEditingController();
   final _telEleveCtrl = TextEditingController();
+  int? _dureeCours;
   TimeOfDay? _heureDebut;
 
   bool _hebdo = false;
@@ -120,6 +127,9 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
         heureDebut: heureStr != null ? Value(heureStr) : const Value.absent(),
         payeurId: widget.eleveAvecPayeur != null
             ? Value(widget.eleveAvecPayeur!.eleve.payeurId)
+            : const Value.absent(),
+        dureeCours: _dureeCours != null
+            ? Value(_dureeCours)
             : const Value.absent(),
       );
 
@@ -218,7 +228,10 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
                   child: ListView(
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    children: _etape == 1 ? _champsEleve() : _champsPayeur(),
+                    children: _etape == 1
+                        ? _champsEleve(
+                            ref.watch(tarifsEnCoursProvider).valueOrNull ?? [])
+                        : _champsPayeur(),
                   ),
                 ),
                 // Boutons navigation
@@ -289,7 +302,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
     }
   }
 
-  List<Widget> _champsEleve() {
+  List<Widget> _champsEleve(List<Tarif> tarifs) {
     return [
       // Prénom
       TextFormField(
@@ -380,6 +393,29 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
           },
         ),
       ],
+      const SizedBox(height: 16),
+      DropdownButtonFormField<int>(
+        initialValue: tarifs.any((t) => t.duree == _dureeCours) ? _dureeCours : null,
+        decoration: InputDecoration(
+          labelText: _hebdo ? 'Durée habituelle *' : 'Durée habituelle',
+        ),
+        hint: Text(tarifs.isEmpty ? 'Aucun tarif défini' : 'Choisir une durée'),
+        items: tarifs
+            .map((t) => DropdownMenuItem(
+                  value: t.duree,
+                  child: Text(
+                      '${t.duree} min — ${t.prix.toStringAsFixed(2)} €'),
+                ))
+            .toList(),
+        onChanged: tarifs.isEmpty
+            ? null
+            : (val) => setState(() => _dureeCours = val),
+        validator: (_) {
+          if (!_hebdo) return null;
+          if (_dureeCours == null) return 'Veuillez sélectionner une durée';
+          return null;
+        },
+      ),
       const SizedBox(height: 24),
       // Qui est le payeur
       Text(
@@ -401,6 +437,16 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
         onChanged: (val) => setState(() => _eleveEstPayeur = val!),
         contentPadding: EdgeInsets.zero,
       ),
+      if (_eleveEstPayeur) ...[
+        const SizedBox(height: 16),
+        SwitchListTile(
+          title: const Text('CESU+'),
+          subtitle: const Text('Cet élève utilise CESU+'),
+          value: _cesuPlus,
+          onChanged: (val) => setState(() => _cesuPlus = val),
+          contentPadding: EdgeInsets.zero,
+        ),
+      ],
     ];
   }
 

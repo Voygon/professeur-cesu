@@ -32,6 +32,7 @@ class Eleves extends Table {
   IntColumn get jourSemaine => integer().nullable()();
   TextColumn get heureDebut => text().nullable()();
   IntColumn get payeurId => integer().references(Payeurs, #payeurId)();
+  IntColumn get dureeCours => integer().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
@@ -82,5 +83,14 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(eleves, eleves.dureeCours);
+          }
+        },
+      );
 }

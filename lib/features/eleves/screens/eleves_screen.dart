@@ -54,11 +54,14 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
                   return Card(
                     child: ListTile(
                       title: Text('${eleve.prenom} ${eleve.nom}'),
-                      subtitle: Text(
-                        eleve.hebdo && eleve.jourSemaine != null
+                      subtitle: Text(() {
+                        final base = eleve.hebdo && eleve.jourSemaine != null
                             ? 'Hebdo — ${JourSemaine.fromValeur(eleve.jourSemaine!).name[0].toUpperCase()}${JourSemaine.fromValeur(eleve.jourSemaine!).name.substring(1)} à ${eleve.heureDebut}'
-                            : 'Cours ponctuels',
-                      ),
+                            : 'Cours ponctuels';
+                        return eleve.dureeCours != null
+                            ? '$base · ${eleve.dureeCours} min'
+                            : base;
+                      }()),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.of(context).push(

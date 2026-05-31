@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../dashboard/screens/dashboard_screen.dart';
 import '../eleves/screens/eleves_screen.dart';
+import '../parametres/screens/parametres_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -18,7 +19,7 @@ class _MainNavigationState extends State<MainNavigation> {
     DashboardScreen(),
     ElevesScreen(),
     _PaiementsScreen(),
-    _ParametresScreen(),
+    ParametresScreen(),
   ];
 
   @override
@@ -70,16 +71,6 @@ class _PaiementsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(child: Text('Paiements')),
-    );
-  }
-}
-
-class _ParametresScreen extends StatelessWidget {
-  const _ParametresScreen();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Paramètres')),
     );
   }
 }

@@ -98,6 +98,12 @@ class FicheEleveScreen extends ConsumerWidget {
                         if (eleveVif.heureDebut != null)
                           _infoTile('Heure', eleveVif.heureDebut,
                               icon: Icons.access_time_outlined),
+                        if (eleveVif.dureeCours != null)
+                          _infoTile(
+                            'Durée habituelle',
+                            '${eleveVif.dureeCours} min',
+                            icon: Icons.timer_outlined,
+                          ),
                       ],
                     ),
                   ),

@@ -1,14 +1,8 @@
 class TarifValidator {
   TarifValidator._();
 
-  // Durées autorisées en minutes
-  static const _dureesAutorisees = [30, 45, 60];
-
   static String? validateDuree(int? value) {
     if (value == null) return 'La durée est obligatoire';
-    if (!_dureesAutorisees.contains(value)) {
-      return 'Durée invalide — valeurs acceptées : 30, 45 ou 60 minutes';
-    }
     return null;
   }
 

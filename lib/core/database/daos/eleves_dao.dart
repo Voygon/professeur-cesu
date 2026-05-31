@@ -51,6 +51,14 @@ class ElevesDao extends DatabaseAccessor<AppDatabase> with _$ElevesDaoMixin {
         .map((liste) => liste.map(_dechiffrerEleve).toList());
   }
 
+  Stream<List<Eleve>> watchElevesArchives() {
+    return (select(eleves)
+          ..where((e) => e.actif.equals(false))
+          ..orderBy([(e) => OrderingTerm.asc(e.prenom)]))
+        .watch()
+        .map((liste) => liste.map(_dechiffrerEleve).toList());
+  }
+
   Stream<List<Eleve>> watchElevesHebdo() {
     return (select(eleves)
           ..where((e) => e.actif.equals(true) & e.hebdo.equals(true))
@@ -89,8 +97,11 @@ class ElevesDao extends DatabaseAccessor<AppDatabase> with _$ElevesDaoMixin {
     return into(eleves).insert(_chiffrerCompanion(companion));
   }
 
-  Future<bool> updateEleve(ElevesCompanion companion) {
-    return update(eleves).replace(_chiffrerCompanion(companion));
+  Future<bool> updateEleve(ElevesCompanion companion) async {
+    final id = companion.elevesId.value;
+    final count = await (update(eleves)..where((e) => e.elevesId.equals(id)))
+        .write(_chiffrerCompanion(companion));
+    return count > 0;
   }
 
   Future<int> archiverEleve(int id) {

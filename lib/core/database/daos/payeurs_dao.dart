@@ -123,8 +123,12 @@ class PayeursDao extends DatabaseAccessor<AppDatabase> with _$PayeursDaoMixin {
     return into(payeurs).insert(_chiffrerCompanion(companion));
   }
 
-  Future<bool> updatePayeur(PayeursCompanion companion) {
-    return update(payeurs).replace(_chiffrerCompanion(companion));
+  Future<bool> updatePayeur(PayeursCompanion companion) async {
+    if (!companion.payeurId.present) return false;
+    final id = companion.payeurId.value;
+    final count = await (update(payeurs)..where((p) => p.payeurId.equals(id)))
+        .write(_chiffrerCompanion(companion));
+    return count > 0;
   }
 
   Future<int> archiverPayeur(int id) {

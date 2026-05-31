@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../dashboard/screens/dashboard_screen.dart';
+import '../eleves/screens/eleves_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -15,7 +16,7 @@ class _MainNavigationState extends State<MainNavigation> {
   // Liste des 4 écrans dans le bon ordre
   static const List<Widget> _screens = [
     DashboardScreen(),
-    _ElevesScreen(),
+    ElevesScreen(),
     _PaiementsScreen(),
     _ParametresScreen(),
   ];
@@ -59,16 +60,6 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ElevesScreen extends StatelessWidget {
-  const _ElevesScreen();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Élèves')),
     );
   }
 }

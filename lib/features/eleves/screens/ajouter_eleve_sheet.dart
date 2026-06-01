@@ -347,7 +347,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
         const SizedBox(height: 16),
         // Jour de la semaine
         DropdownButtonFormField<JourSemaine>(
-          value: _jourSemaine,
+          initialValue: _jourSemaine,
           decoration: const InputDecoration(labelText: 'Jour *'),
           items: JourSemaine.values.map((j) {
             return DropdownMenuItem(

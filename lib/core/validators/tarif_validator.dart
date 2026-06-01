@@ -12,8 +12,9 @@ class TarifValidator {
     if (value > 999) return 'Le prix semble incorrect (max 999€)';
     // Vérifie qu'on n'a pas plus de 2 décimales (ex: 25.123 est invalide)
     final arrondi = double.parse(value.toStringAsFixed(2));
-    if (arrondi != value)
+    if (arrondi != value) {
       return 'Le prix ne peut pas avoir plus de 2 décimales';
+    }
     return null;
   }
 

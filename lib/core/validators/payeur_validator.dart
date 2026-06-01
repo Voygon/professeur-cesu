@@ -4,13 +4,16 @@ class PayeurValidator {
   PayeurValidator._();
 
   static String? validatePrenom(String? value) {
-    if (value == null || value.trim().isEmpty)
+    if (value == null || value.trim().isEmpty) {
       return 'Le prénom est obligatoire';
+    }
     final trimmed = value.trim();
-    if (trimmed.length < 2)
+    if (trimmed.length < 2) {
       return 'Le prénom doit contenir au moins 2 caractères';
-    if (trimmed.length > 50)
+    }
+    if (trimmed.length > 50) {
       return 'Le prénom ne peut pas dépasser 50 caractères';
+    }
     return null;
   }
 
@@ -32,10 +35,12 @@ class PayeurValidator {
   }
 
   static String? validateAdresse(String? value) {
-    if (value == null || value.trim().isEmpty)
+    if (value == null || value.trim().isEmpty) {
       return 'L\'adresse est obligatoire';
-    if (value.trim().length < 5)
+    }
+    if (value.trim().length < 5) {
       return 'L\'adresse doit contenir au moins 5 caractères';
+    }
     return null;
   }
 }

@@ -332,4 +332,119 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
       annee: annee,
     );
   }
+
+  Stream<List<Cour>> watchCoursPeriode(DateTime debut, DateTime fin,
+      {bool inclureAnnules = false}) {
+    final query = select(cours)
+      ..where((c) =>
+          c.datePrevue.isBiggerOrEqualValue(debut) &
+          c.datePrevue.isSmallerThanValue(fin))
+      ..orderBy([(c) => OrderingTerm.asc(c.datePrevue)]);
+
+    if (!inclureAnnules) {
+      query.where((c) => c.statut.isNotValue(StatutCours.annule.toDb()));
+    }
+    return query.watch();
+  }
+
+  // ── Paiements ──────────────────────────────────────────────────────────────
+
+  Stream<List<Cour>> watchCoursValides() {
+    return (select(cours)
+          ..where((c) =>
+              c.statut.equals(StatutCours.effectue.toDb()) |
+              c.statut.equals(StatutCours.modifie.toDb())))
+        .watch();
+  }
+
+  Stream<List<Cour>> watchCoursParMois(int mois, int annee) {
+    final debut = DateTime(annee, mois, 1);
+    final fin = DateTime(annee, mois + 1, 1);
+    return (select(cours)
+          ..where((c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return (c.statut.equals(StatutCours.effectue.toDb()) |
+                    c.statut.equals(StatutCours.modifie.toDb())) &
+                d.isBiggerOrEqualValue(debut) &
+                d.isSmallerThanValue(fin);
+          })
+          ..orderBy([(c) => OrderingTerm.asc(c.elevesId)]))
+        .watch();
+  }
+
+  Stream<List<Cour>> watchCoursEleveParPeriode(
+      int eleveId, DateTime debut, DateTime fin) {
+    return (select(cours)
+          ..where((c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return c.elevesId.equals(eleveId) &
+                (c.statut.equals(StatutCours.effectue.toDb()) |
+                    c.statut.equals(StatutCours.modifie.toDb())) &
+                d.isBiggerOrEqualValue(debut) &
+                d.isSmallerThanValue(fin);
+          })
+          ..orderBy([(c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return OrderingTerm.asc(d);
+          }]))
+        .watch();
+  }
+
+  Stream<RecapMois> watchRecapPeriode(
+      int eleveId, DateTime debut, DateTime fin) {
+    final nbExpr = cours.coursId.count();
+    final totalExpr = cours.montant.sum();
+    final nbPayesExpr = cours.coursId.count(filter: cours.paye.equals(true));
+    final payeExpr = cours.montant.sum(filter: cours.paye.equals(true));
+
+    final query = selectOnly(cours)
+      ..addColumns([nbExpr, totalExpr, nbPayesExpr, payeExpr])
+      ..where(cours.elevesId.equals(eleveId) &
+          (cours.statut.equals(StatutCours.effectue.toDb()) |
+              cours.statut.equals(StatutCours.modifie.toDb())) &
+          coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
+              .isBiggerOrEqualValue(debut) &
+          coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
+              .isSmallerThanValue(fin));
+
+    return query.watchSingleOrNull().map((r) {
+      if (r == null) {
+        return RecapMois(
+          nbCoursValides: 0, nbCoursPayes: 0,
+          montantTotal: 0, montantPaye: 0, montantRestant: 0,
+          mois: debut.month, annee: debut.year,
+        );
+      }
+      final total = r.read(totalExpr) ?? 0.0;
+      final paye = r.read(payeExpr) ?? 0.0;
+      return RecapMois(
+        nbCoursValides: r.read(nbExpr) ?? 0,
+        nbCoursPayes: r.read(nbPayesExpr) ?? 0,
+        montantTotal: total,
+        montantPaye: paye,
+        montantRestant: total - paye,
+        mois: debut.month,
+        annee: debut.year,
+      );
+    });
+  }
+
+  Future<void> marquerMoisNonPaye(int eleveId, int mois, int annee) async {
+    final debut = DateTime(annee, mois, 1);
+    final fin = DateTime(annee, mois + 1, 1);
+    await (update(cours)
+          ..where((c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return c.elevesId.equals(eleveId) &
+                (c.statut.equals(StatutCours.effectue.toDb()) |
+                    c.statut.equals(StatutCours.modifie.toDb())) &
+                d.isBiggerOrEqualValue(debut) &
+                d.isSmallerThanValue(fin);
+          }))
+        .write(CoursCompanion(
+          paye: const Value(false),
+          datePaiement: const Value(null),
+          updatedAt: Value(DateTime.now()),
+        ));
+  }
 }

@@ -30,6 +30,15 @@ final coursDuJourProvider = StreamProvider<List<Cour>>((ref) {
   return ref.watch(coursDaoProvider).watchCoursDuJour();
 });
 
+typedef PeriodeDashboard = ({DateTime debut, DateTime fin});
+
+final coursPeriodeProvider =
+    StreamProvider.family<List<Cour>, PeriodeDashboard>((ref, key) {
+  return ref
+      .watch(coursDaoProvider)
+      .watchCoursPeriode(key.debut, key.fin);
+});
+
 final eleveParIdProvider = FutureProvider.family<Eleve?, int>((ref, id) {
   return ref.watch(elevesDaoProvider).getEleve(id);
 });

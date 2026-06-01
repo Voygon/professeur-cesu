@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../dashboard/screens/dashboard_screen.dart';
 import '../eleves/screens/eleves_screen.dart';
+import '../paiements/screens/paiements_screen.dart';
 import '../parametres/screens/parametres_screen.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -18,7 +19,7 @@ class _MainNavigationState extends State<MainNavigation> {
   static const List<Widget> _screens = [
     DashboardScreen(),
     ElevesScreen(),
-    _PaiementsScreen(),
+    PaiementsScreen(),
     ParametresScreen(),
   ];
 
@@ -65,12 +66,3 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-class _PaiementsScreen extends StatelessWidget {
-  const _PaiementsScreen();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Paiements')),
-    );
-  }
-}

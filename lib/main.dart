@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/auth/auth_provider.dart';
+import 'core/rgpd/rgpd_screen.dart';
+import 'core/rgpd/rgpd_service.dart';
 import 'core/security/encryption_service.dart';
 import 'core/database/database_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -44,15 +46,20 @@ class _AppGuard extends ConsumerStatefulWidget {
 
 class _AppGuardState extends ConsumerState<_AppGuard>
     with WidgetsBindingObserver {
+  bool _consentementAccepte = false;
+
   @override
   void initState() {
     super.initState();
-    // Enregistre ce widget comme observateur du cycle de vie
     WidgetsBinding.instance.addObserver(this);
-    // Lance la vérification auth au démarrage
-    // addPostFrameCallback garantit que le widget est monté avant d'appeler ref
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authProvider.notifier).verifier();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final accepte = await RgpdService.isConsentementAccepte();
+      if (mounted) {
+        setState(() => _consentementAccepte = accepte);
+        if (accepte) {
+          ref.read(authProvider.notifier).verifier();
+        }
+      }
     });
   }
 
@@ -82,6 +89,15 @@ class _AppGuardState extends ConsumerState<_AppGuard>
 
   @override
   Widget build(BuildContext context) {
+    if (!_consentementAccepte) {
+      return RgpdScreen(
+        onAccepte: () {
+          setState(() => _consentementAccepte = true);
+          ref.read(authProvider.notifier).verifier();
+        },
+      );
+    }
+
     // Écoute l'état d'auth — se reconstruit automatiquement si ça change
     final authState = ref.watch(authProvider);
 

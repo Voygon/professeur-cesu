@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/tarifs_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../core/export/export_service.dart';
 import '../../../core/validators/tarif_validator.dart';
 
 class ParametresScreen extends ConsumerStatefulWidget {
@@ -116,6 +117,25 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                       }).toList(),
                     ),
                   ),
+          ),
+          // ── Données ──
+          const SizedBox(height: 24),
+          Text(
+            'Données',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Exporter mes données'),
+              subtitle: const Text('CSV — élèves, payeurs, cours'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _exporter(context, ref),
+            ),
           ),
         ],
       ),
@@ -325,5 +345,29 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
+  }
+
+  Future<void> _exporter(BuildContext context, WidgetRef ref) async {
+    try {
+      final eleves = await ref
+          .read(elevesDaoProvider)
+          .searchEleves('', inclureArchives: true)
+          .first;
+      final payeurs =
+          await ref.read(payeursDaoProvider).watchPayeursActifs().first;
+      final cours = await ref.read(coursDaoProvider).watchCoursValides().first;
+
+      await ExportService.exporterTout(
+        eleves: eleves,
+        payeurs: payeurs,
+        cours: cours,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur export : $e')),
+        );
+      }
+    }
   }
 }

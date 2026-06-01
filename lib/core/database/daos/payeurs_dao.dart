@@ -41,18 +41,18 @@ class PayeursDao extends DatabaseAccessor<AppDatabase> with _$PayeursDaoMixin {
 
   Stream<List<Payeur>> watchPayeursActifs() {
     return (select(payeurs)
-          ..where((p) => p.actif.equals(true))
-          ..orderBy([(p) => OrderingTerm.asc(p.prenom)]))
+          ..where((p) => p.actif.equals(true)))
         .watch()
-        .map((liste) => liste.map(_dechiffrerPayeur).toList());
+        .map((liste) => liste.map(_dechiffrerPayeur).toList()
+          ..sort((a, b) => a.prenom.compareTo(b.prenom)));
   }
 
   Stream<List<Payeur>> watchPayeursCesuPlus() {
     return (select(payeurs)
-          ..where((p) => p.cesuPlus.equals(true))
-          ..orderBy([(p) => OrderingTerm.asc(p.prenom)]))
+          ..where((p) => p.cesuPlus.equals(true)))
         .watch()
-        .map((liste) => liste.map(_dechiffrerPayeur).toList());
+        .map((liste) => liste.map(_dechiffrerPayeur).toList()
+          ..sort((a, b) => a.prenom.compareTo(b.prenom)));
   }
 
   Future<Payeur?> getPayeur(int id) async {
@@ -86,8 +86,7 @@ class PayeursDao extends DatabaseAccessor<AppDatabase> with _$PayeursDaoMixin {
       {bool inclureArchives = false}) {
     return (select(payeurs)
           ..where((p) =>
-              inclureArchives ? const Constant(true) : p.actif.equals(true))
-          ..orderBy([(p) => OrderingTerm.asc(p.prenom)]))
+              inclureArchives ? const Constant(true) : p.actif.equals(true)))
         .watch()
         .map((liste) {
       final dechiffres = liste.map(_dechiffrerPayeur).toList();
@@ -98,10 +97,13 @@ class PayeursDao extends DatabaseAccessor<AppDatabase> with _$PayeursDaoMixin {
               p.nom.toLowerCase().contains(queryLower) ||
               p.adress.toLowerCase().contains(queryLower) ||
               p.telephone.toLowerCase().contains(queryLower))
-          .toList();
+          .toList()
+        ..sort((a, b) => a.prenom.compareTo(b.prenom));
     });
   }
 
+  // Note : l'élève retourné n'est PAS déchiffré (données brutes de la DB).
+  // Préférer eleveAvecPayeurProvider qui combine watchEleve + getPayeurByEleve.
   Future<EleveAvecPayeur?> getEleveAvecPayeur(int eleveId) async {
     final query = select(eleves).join([
       innerJoin(payeurs, payeurs.payeurId.equalsExp(eleves.payeurId)),

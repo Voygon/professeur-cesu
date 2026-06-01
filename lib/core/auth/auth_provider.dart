@@ -27,8 +27,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final disponible = await _authService.isAvailable();
 
     if (!disponible) {
-      // Pas de verrouillage système configuré sur ce téléphone
-      state = AuthState.nonDisponible;
+      // Si l'utilisateur avait coché "ne plus m'avertir", on laisse passer
+      final ignore = await _authService.isAvertissementIgnore();
+      state = ignore ? AuthState.authentifie : AuthState.nonDisponible;
       return;
     }
 

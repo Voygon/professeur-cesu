@@ -74,16 +74,19 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
     setState(() => _chargement = true);
     try {
       final nouvelleDatePrevue = _nouvelleDatePrevue;
-      if (nouvelleDatePrevue != widget.cours.datePrevue) {
-        await ref
-            .read(coursDaoProvider)
-            .deplacerCours(widget.cours.coursId, nouvelleDatePrevue);
-      }
-      await ref.read(coursDaoProvider).validerCours(
-            widget.cours.coursId,
-            montant: _montant!,
-            dureeReelle: _duree,
-          );
+      final db = ref.read(databaseProvider);
+      final coursDao = ref.read(coursDaoProvider);
+
+      await db.transaction(() async {
+        if (nouvelleDatePrevue != widget.cours.datePrevue) {
+          await coursDao.deplacerCours(widget.cours.coursId, nouvelleDatePrevue);
+        }
+        await coursDao.validerCours(
+          widget.cours.coursId,
+          montant: _montant!,
+          dureeReelle: _duree,
+        );
+      });
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _chargement = false);

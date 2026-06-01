@@ -179,7 +179,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
           // ── Liste des cours ─────────────────────────────────────────────
           Expanded(
-            child: coursAsync.when(
+            child: _mode == _Mode.plage &&
+                    (_plageDebut == null || _plageFin == null)
+                ? const Center(child: Text('Sélectionnez une période'))
+                : coursAsync.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(child: Text('Erreur : $err')),

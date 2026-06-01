@@ -45,26 +45,26 @@ class ElevesDao extends DatabaseAccessor<AppDatabase> with _$ElevesDaoMixin {
 
   Stream<List<Eleve>> watchElevesActifs() {
     return (select(eleves)
-          ..where((e) => e.actif.equals(true))
-          ..orderBy([(e) => OrderingTerm.asc(e.prenom)]))
+          ..where((e) => e.actif.equals(true)))
         .watch()
-        .map((liste) => liste.map(_dechiffrerEleve).toList());
+        .map((liste) => liste.map(_dechiffrerEleve).toList()
+          ..sort((a, b) => a.prenom.compareTo(b.prenom)));
   }
 
   Stream<List<Eleve>> watchElevesArchives() {
     return (select(eleves)
-          ..where((e) => e.actif.equals(false))
-          ..orderBy([(e) => OrderingTerm.asc(e.prenom)]))
+          ..where((e) => e.actif.equals(false)))
         .watch()
-        .map((liste) => liste.map(_dechiffrerEleve).toList());
+        .map((liste) => liste.map(_dechiffrerEleve).toList()
+          ..sort((a, b) => a.prenom.compareTo(b.prenom)));
   }
 
   Stream<List<Eleve>> watchElevesHebdo() {
     return (select(eleves)
-          ..where((e) => e.actif.equals(true) & e.hebdo.equals(true))
-          ..orderBy([(e) => OrderingTerm.asc(e.prenom)]))
+          ..where((e) => e.actif.equals(true) & e.hebdo.equals(true)))
         .watch()
-        .map((liste) => liste.map(_dechiffrerEleve).toList());
+        .map((liste) => liste.map(_dechiffrerEleve).toList()
+          ..sort((a, b) => a.prenom.compareTo(b.prenom)));
   }
 
   Future<Eleve?> getEleve(int id) async {
@@ -73,12 +73,17 @@ class ElevesDao extends DatabaseAccessor<AppDatabase> with _$ElevesDaoMixin {
     return eleve == null ? null : _dechiffrerEleve(eleve);
   }
 
+  Stream<Eleve?> watchEleve(int id) {
+    return (select(eleves)..where((e) => e.elevesId.equals(id)))
+        .watchSingleOrNull()
+        .map((e) => e == null ? null : _dechiffrerEleve(e));
+  }
+
   Stream<List<Eleve>> searchEleves(String query,
       {bool inclureArchives = false}) {
     return (select(eleves)
           ..where((e) =>
-              inclureArchives ? const Constant(true) : e.actif.equals(true))
-          ..orderBy([(e) => OrderingTerm.asc(e.prenom)]))
+              inclureArchives ? const Constant(true) : e.actif.equals(true)))
         .watch()
         .map((liste) {
       final dechiffres = liste.map(_dechiffrerEleve).toList();
@@ -89,7 +94,8 @@ class ElevesDao extends DatabaseAccessor<AppDatabase> with _$ElevesDaoMixin {
               e.nom.toLowerCase().contains(queryLower) ||
               (e.adress.toLowerCase().contains(queryLower)) ||
               (e.telephone.toLowerCase().contains(queryLower)))
-          .toList();
+          .toList()
+        ..sort((a, b) => a.prenom.compareTo(b.prenom));
     });
   }
 

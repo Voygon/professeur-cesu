@@ -29,12 +29,20 @@ class ExportService {
     await coursFile.writeAsString(_genererCsvCours(cours));
     fichiers.add(XFile(coursFile.path));
 
-    // Partage via le système Android
-    await Share.shareXFiles(
-      fichiers,
-      subject: 'Export Professeur CESU',
-      text: 'Export de vos données — ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-    );
+    try {
+      await Share.shareXFiles(
+        fichiers,
+        subject: 'Export Professeur CESU',
+        text: 'Export de vos données — ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+      );
+    } finally {
+      // Supprime les fichiers temporaires après partage (quelle que soit l'issue)
+      for (final xf in fichiers) {
+        try {
+          await File(xf.path).delete();
+        } catch (_) {}
+      }
+    }
   }
 
   static String _genererCsvEleves(List<Eleve> eleves) {

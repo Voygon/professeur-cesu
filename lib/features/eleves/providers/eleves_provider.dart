@@ -41,24 +41,24 @@ class ElevesService {
     required PayeursCompanion payeur,
     required int payeurId,
   }) async {
+    final db = _ref.read(databaseProvider);
     final payeursDao = _ref.read(payeursDaoProvider);
     final elevesDao = _ref.read(elevesDaoProvider);
 
-    await payeursDao.updatePayeur(
-      payeur.copyWith(payeurId: Value(payeurId)),
-    );
-    await elevesDao.updateEleve(eleve);
+    await db.transaction(() async {
+      await payeursDao.updatePayeur(
+        payeur.copyWith(payeurId: Value(payeurId)),
+      );
+      await elevesDao.updateEleve(eleve);
+    });
   }
 }
 
 final eleveAvecPayeurProvider =
     StreamProvider.family<EleveAvecPayeur?, int>((ref, eleveId) async* {
-  final stream = ref.watch(elevesDaoProvider).searchEleves(
-        '',
-        inclureArchives: true,
-      );
-  await for (final eleves in stream) {
-    final eleve = eleves.where((e) => e.elevesId == eleveId).firstOrNull;
+  // Écoute uniquement cet élève — SQLite notifie seulement quand il change
+  await for (final eleve
+      in ref.watch(elevesDaoProvider).watchEleve(eleveId)) {
     if (eleve == null) {
       yield null;
       continue;

@@ -83,14 +83,36 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+          await _createIndexes();
+        },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.addColumn(eleves, eleves.dureeCours);
           }
+          if (from < 3) {
+            await _createIndexes();
+          }
         },
       );
+
+  Future<void> _createIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_cours_eleve ON cours(eleves_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_cours_date ON cours(date_prevue)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_cours_statut ON cours(statut)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_cours_paye ON cours(paye)',
+    );
+  }
 }

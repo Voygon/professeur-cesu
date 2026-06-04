@@ -228,6 +228,53 @@ class FicheEleveScreen extends ConsumerWidget {
                           icon: const Icon(Icons.unarchive_outlined),
                           label: const Text('Réactiver'),
                         ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final confirmer = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Supprimer définitivement ?'),
+                              content: const Text(
+                                'L\'élève et tous ses cours seront supprimés définitivement. '
+                                'Cette action est irréversible.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Annuler'),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, true),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                  child: const Text('Supprimer'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmer == true && context.mounted) {
+                            await ref
+                                .read(coursDaoProvider)
+                                .deleteCoursEleve(eleveId);
+                            await ref
+                                .read(elevesDaoProvider)
+                                .deleteEleve(eleveId);
+                            if (context.mounted) Navigator.of(context).pop();
+                          }
+                        },
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Supprimer définitivement'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.error,
+                        ),
+                      ),
                     ],
                   ),
                 ),

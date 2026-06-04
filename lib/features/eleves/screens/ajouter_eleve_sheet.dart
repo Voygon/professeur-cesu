@@ -2,6 +2,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/validators/conflit_horaire.dart';
+import '../../parametres/providers/parametres_provider.dart';
 import '../../../core/validators/eleve_validator.dart';
 import '../../../core/validators/payeur_validator.dart';
 import '../../../shared/models/enums.dart';
@@ -251,7 +253,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
                         if (_etape == 2) const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _chargement ? null : _boutonSuivant,
+                            onPressed: _chargement ? null : () => _boutonSuivant(),
                             child: _chargement
                                 ? const SizedBox(
                                     height: 20,
@@ -276,7 +278,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
     );
   }
 
-  void _boutonSuivant() {
+  Future<void> _boutonSuivant() async {
     if (!_formKey.currentState!.validate()) return;
 
     // Validation manuelle de l'heure
@@ -288,13 +290,54 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
       return;
     }
 
+    // Vérification des conflits hebdomadaires
+    if (_hebdo &&
+        _jourSemaine != null &&
+        _heureDebut != null &&
+        _dureeCours != null) {
+      final elevesActifs =
+          ref.read(elevesActifsProvider).valueOrNull ?? [];
+      final conflits = ConflitHoraire.detecterConflitsHebdo(
+        _jourSemaine!.valeur,
+        _heureDebut!,
+        _dureeCours!,
+        elevesActifs,
+        excludeEleveId: widget.eleveAvecPayeur?.eleve.elevesId,
+        espacement: ref.read(espacementProvider),
+      );
+
+      if (conflits.isNotEmpty && mounted) {
+        final continuer = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Conflit d\'horaire'),
+            content: Text(
+              'Ce créneau est trop proche d\'un autre cours '
+              '(espacement < 15 min) :\n\n'
+              '${ConflitHoraire.descriptionConflitsHebdo(conflits)}\n\n'
+              'Voulez-vous continuer quand même ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Modifier le créneau'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Continuer quand même'),
+              ),
+            ],
+          ),
+        );
+        if (continuer != true) return;
+      }
+    }
+
     if (_etape == 1) {
       if (_eleveEstPayeur) {
-        // Copie les infos et sauvegarde directement
         _copierInfosEleveVersPayeur();
         _valider();
       } else {
-        // Passe à l'étape payeur
         setState(() => _etape = 2);
       }
     } else {

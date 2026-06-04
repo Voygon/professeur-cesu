@@ -34,6 +34,7 @@ final moisAvecCoursProvider = StreamProvider<List<MoisInfo>>((ref) {
 
 typedef MoisCle = ({int mois, int annee});
 typedef PeriodeCle = ({int eleveId, DateTime debut, DateTime fin});
+typedef PeriodeSeuleCle = ({DateTime debut, DateTime fin});
 
 final coursParMoisProvider =
     StreamProvider.family<List<Cour>, MoisCle>((ref, key) {
@@ -52,4 +53,18 @@ final coursParPeriodeProvider =
   return ref
       .watch(coursDaoProvider)
       .watchCoursEleveParPeriode(key.eleveId, key.debut, key.fin);
+});
+
+final recapPeriodeTousProvider =
+    StreamProvider.family<RecapMois, PeriodeSeuleCle>((ref, key) {
+  return ref
+      .watch(coursDaoProvider)
+      .watchRecapPeriodeTous(key.debut, key.fin);
+});
+
+final coursParPeriodeTousProvider =
+    StreamProvider.family<List<Cour>, PeriodeSeuleCle>((ref, key) {
+  return ref
+      .watch(coursDaoProvider)
+      .watchCoursParPeriodeTous(key.debut, key.fin);
 });

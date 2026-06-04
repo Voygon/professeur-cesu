@@ -69,11 +69,11 @@ class _VueParEleveScreenState extends ConsumerState<VueParEleveScreen> {
                 data: (eleves) => DropdownButtonFormField<Eleve?>(
                   initialValue: _eleve,
                   decoration: const InputDecoration(labelText: 'Élève'),
-                  hint: const Text('Sélectionner un élève'),
+                  hint: const Text('Tous les élèves'),
                   items: [
                     const DropdownMenuItem<Eleve?>(
                       value: null,
-                      child: Text('— Sélectionner un élève —'),
+                      child: Text('Tous les élèves'),
                     ),
                     ...eleves.map((e) => DropdownMenuItem<Eleve?>(
                           value: e,
@@ -201,21 +201,15 @@ class _VueParEleveScreenState extends ConsumerState<VueParEleveScreen> {
 
         // ── Contenu ────────────────────────────────────────────────────────
         Expanded(
-          child: _eleve == null
-              ? const Center(
-                  child: Text('Sélectionnez un élève'),
-                )
-              : _modeDetail
-                  ? _DetailCours(
-                      eleveId: _eleve!.elevesId,
-                      debut: _debut,
-                      fin: _fin,
-                    )
+          child: _modeDetail
+              ? (_eleve == null
+                  ? _DetailCoursTous(debut: _debut, fin: _fin)
+                  : _DetailCours(
+                      eleveId: _eleve!.elevesId, debut: _debut, fin: _fin))
+              : (_eleve == null
+                  ? _RecapCardTous(debut: _debut, fin: _fin)
                   : _RecapCard(
-                      eleveId: _eleve!.elevesId,
-                      debut: _debut,
-                      fin: _fin,
-                    ),
+                      eleveId: _eleve!.elevesId, debut: _debut, fin: _fin)),
         ),
       ],
     );
@@ -327,7 +321,7 @@ class _LigneRecap extends StatelessWidget {
   }
 }
 
-// ── Détail cours ─────────────────────────────────────────────────────────────
+// ── Détail cours (un élève) ───────────────────────────────────────────────────
 
 class _DetailCours extends ConsumerWidget {
   final int eleveId;
@@ -352,49 +346,158 @@ class _DetailCours extends ConsumerWidget {
         if (coursList.isEmpty) {
           return const Center(child: Text('Aucun cours pour cette période'));
         }
-
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: coursList.length,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, i) {
-            final cour = coursList[i];
-            final date = cour.dateReelle ?? cour.datePrevue;
-            return Card(
-              child: ListTile(
-                leading: Icon(
-                  cour.paye
-                      ? Icons.check_circle_outline
-                      : Icons.radio_button_unchecked,
-                  color: cour.paye ? Colors.green : Colors.grey,
-                ),
-                title: Text(_formatDate(date)),
-                subtitle: Text(
-                  [
-                    if (cour.dureeReelle != null) '${cour.dureeReelle} min',
-                    if (cour.montant != null)
-                      '${cour.montant!.toStringAsFixed(2)} €',
-                  ].join(' · '),
-                ),
-                trailing: Switch(
-                  value: cour.paye,
-                  onChanged: (v) async {
-                    if (v) {
-                      await ref
-                          .read(coursDaoProvider)
-                          .marquerCoursPaye(cour.coursId);
-                    } else {
-                      await ref
-                          .read(coursDaoProvider)
-                          .marquerCoursNonPaye(cour.coursId);
-                    }
-                  },
-                ),
-              ),
-            );
-          },
+          itemBuilder: (context, i) => _TuileCours(cour: coursList[i]),
         );
       },
+    );
+  }
+}
+
+// ── Récap tous élèves ─────────────────────────────────────────────────────────
+
+class _RecapCardTous extends ConsumerWidget {
+  final DateTime debut;
+  final DateTime fin;
+
+  const _RecapCardTous({required this.debut, required this.fin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recapAsync = ref.watch(
+        recapPeriodeTousProvider((debut: debut, fin: fin)));
+
+    return recapAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Center(child: Text('Erreur')),
+      data: (recap) {
+        if (recap.nbCoursValides == 0) {
+          return const Center(child: Text('Aucun cours pour cette période'));
+        }
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _LigneRecap(
+                          label: 'Cours validés',
+                          valeur: '${recap.nbCoursValides}'),
+                      _LigneRecap(
+                          label: 'Montant total',
+                          valeur:
+                              '${recap.montantTotal.toStringAsFixed(2)} €'),
+                      _LigneRecap(
+                          label: 'Montant payé',
+                          valeur:
+                              '${recap.montantPaye.toStringAsFixed(2)} €',
+                          couleur: Colors.green),
+                      _LigneRecap(
+                          label: 'Restant dû',
+                          valeur:
+                              '${recap.montantRestant.toStringAsFixed(2)} €',
+                          couleur: recap.montantRestant > 0
+                              ? Theme.of(context).colorScheme.error
+                              : null,
+                          bold: recap.montantRestant > 0),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Détail cours tous élèves ──────────────────────────────────────────────────
+
+class _DetailCoursTous extends ConsumerWidget {
+  final DateTime debut;
+  final DateTime fin;
+
+  const _DetailCoursTous({required this.debut, required this.fin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final coursAsync =
+        ref.watch(coursParPeriodeTousProvider((debut: debut, fin: fin)));
+    final elevesAsync = ref.watch(elevesActifsProvider);
+
+    if (coursAsync.isLoading || elevesAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final coursList = coursAsync.valueOrNull ?? [];
+    final elevesMap = {
+      for (final e in elevesAsync.valueOrNull ?? [])
+        e.elevesId: '${e.prenom} ${e.nom}'
+    };
+
+    if (coursList.isEmpty) {
+      return const Center(child: Text('Aucun cours pour cette période'));
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: coursList.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, i) => _TuileCours(
+        cour: coursList[i],
+        nomEleve: elevesMap[coursList[i].elevesId],
+      ),
+    );
+  }
+}
+
+// ── Tuile cours réutilisable ──────────────────────────────────────────────────
+
+class _TuileCours extends ConsumerWidget {
+  final Cour cour;
+  final String? nomEleve;
+
+  const _TuileCours({required this.cour, this.nomEleve});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final date = cour.dateReelle ?? cour.datePrevue;
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          cour.paye ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+          color: cour.paye ? Colors.green : Colors.grey,
+        ),
+        title: Text(nomEleve != null
+            ? '$nomEleve — ${_formatDate(date)}'
+            : _formatDate(date)),
+        subtitle: Text(
+          [
+            if (cour.dureeReelle != null) '${cour.dureeReelle} min',
+            if (cour.montant != null) '${cour.montant!.toStringAsFixed(2)} €',
+          ].join(' · '),
+        ),
+        trailing: Switch(
+          value: cour.paye,
+          onChanged: (v) async {
+            if (v) {
+              await ref.read(coursDaoProvider).marquerCoursPaye(cour.coursId);
+            } else {
+              await ref
+                  .read(coursDaoProvider)
+                  .marquerCoursNonPaye(cour.coursId);
+            }
+          },
+        ),
+      ),
     );
   }
 }

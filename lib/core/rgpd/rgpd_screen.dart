@@ -67,31 +67,6 @@ class RgpdScreen extends StatelessWidget {
                   child: const Text('J\'accepte et je continue'),
                 ),
               ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('Utilisation impossible'),
-                        content: const Text(
-                          'Sans votre consentement, l\'application ne peut pas '
-                          'fonctionner car elle doit stocker des données pour '
-                          'gérer vos cours.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Compris'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const Text('Refuser'),
-                ),
-              ),
             ],
           ),
         ),

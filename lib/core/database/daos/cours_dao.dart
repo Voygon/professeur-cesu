@@ -85,6 +85,8 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
       CoursCompanion(
         statut: Value(StatutCours.prevu.toDb()),
         montant: const Value(null),
+        paye: const Value(false),
+        datePaiement: const Value(null),
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -204,6 +206,10 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
 
   Future<int> deleteCours(int id) {
     return (delete(cours)..where((c) => c.coursId.equals(id))).go();
+  }
+
+  Future<int> deleteCoursEleve(int eleveId) {
+    return (delete(cours)..where((c) => c.elevesId.equals(eleveId))).go();
   }
 
   Future<int> insertCoursExceptionnel(CoursCompanion companion) {
@@ -390,6 +396,22 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         .watch();
   }
 
+  Stream<List<Cour>> watchCoursParPeriodeTous(DateTime debut, DateTime fin) {
+    return (select(cours)
+          ..where((c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return (c.statut.equals(StatutCours.effectue.toDb()) |
+                    c.statut.equals(StatutCours.modifie.toDb())) &
+                d.isBiggerOrEqualValue(debut) &
+                d.isSmallerThanValue(fin);
+          })
+          ..orderBy([(c) {
+            final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
+            return OrderingTerm.asc(d);
+          }]))
+        .watch();
+  }
+
   Stream<RecapMois> watchRecapPeriode(
       int eleveId, DateTime debut, DateTime fin) {
     final nbExpr = cours.coursId.count();
@@ -425,6 +447,43 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         montantRestant: total - paye,
         mois: debut.month,
         annee: debut.year,
+      );
+    });
+  }
+
+  Stream<RecapMois> watchRecapPeriodeTous(DateTime debut, DateTime fin) {
+    final nbExpr     = cours.coursId.count();
+    final totalExpr  = cours.montant.sum();
+    final nbPayesExpr = cours.coursId.count(filter: cours.paye.equals(true));
+    final payeExpr   = cours.montant.sum(filter: cours.paye.equals(true));
+
+    final query = selectOnly(cours)
+      ..addColumns([nbExpr, totalExpr, nbPayesExpr, payeExpr])
+      ..where(
+          (cours.statut.equals(StatutCours.effectue.toDb()) |
+              cours.statut.equals(StatutCours.modifie.toDb())) &
+          coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
+              .isBiggerOrEqualValue(debut) &
+          coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
+              .isSmallerThanValue(fin));
+
+    return query.watchSingleOrNull().map((r) {
+      if (r == null) {
+        return RecapMois(
+          nbCoursValides: 0, nbCoursPayes: 0,
+          montantTotal: 0, montantPaye: 0, montantRestant: 0,
+          mois: debut.month, annee: debut.year,
+        );
+      }
+      final total = r.read(totalExpr) ?? 0.0;
+      final paye  = r.read(payeExpr)  ?? 0.0;
+      return RecapMois(
+        nbCoursValides: r.read(nbExpr)      ?? 0,
+        nbCoursPayes:   r.read(nbPayesExpr) ?? 0,
+        montantTotal:   total,
+        montantPaye:    paye,
+        montantRestant: total - paye,
+        mois: debut.month, annee: debut.year,
       );
     });
   }

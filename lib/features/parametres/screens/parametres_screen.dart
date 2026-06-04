@@ -1,132 +1,92 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/tarifs_provider.dart';
-import '../../../core/database/app_database.dart';
+import '../providers/parametres_provider.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/export/export_service.dart';
-import '../../../core/validators/tarif_validator.dart';
+import '../../../core/export/backup_service.dart';
+import '../../../core/import/import_screen.dart';
+import 'tarifs_screen.dart';
 
-class ParametresScreen extends ConsumerStatefulWidget {
+class ParametresScreen extends ConsumerWidget {
   const ParametresScreen({super.key});
 
   @override
-  ConsumerState<ParametresScreen> createState() => _ParametresScreenState();
-}
-
-class _ParametresScreenState extends ConsumerState<ParametresScreen> {
-  bool _afficherArchives = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tarifsAsync = _afficherArchives
-        ? ref.watch(tarifsArchivesProvider)
-        : ref.watch(tarifsEnCoursProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tarifsActifs = ref.watch(tarifsEnCoursProvider).valueOrNull ?? [];
+    final espacement = ref.watch(espacementProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_afficherArchives ? 'Tarifs archivés' : 'Tarifs'),
-        actions: [
-          IconButton(
-            tooltip: _afficherArchives ? 'Voir les actifs' : 'Voir les archivés',
-            icon: Icon(
-              _afficherArchives ? Icons.sell_outlined : Icons.archive_outlined,
-            ),
-            onPressed: () => setState(() => _afficherArchives = !_afficherArchives),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          tarifsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => const Text('Erreur de chargement'),
-            data: (tarifs) => tarifs.isEmpty
-                ? Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(_afficherArchives
-                          ? 'Aucun tarif archivé'
-                          : 'Aucun tarif défini'),
-                    ),
-                  )
-                : Card(
-                    child: Column(
-                      children: tarifs.map((tarif) {
-                        return ListTile(
-                          title: Text(
-                            '${tarif.duree} minutes',
-                            style: _afficherArchives
-                                ? TextStyle(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  )
-                                : null,
-                          ),
-                          subtitle: Text(
-                            '${tarif.prix.toStringAsFixed(2)} €',
-                            style: _afficherArchives
-                                ? TextStyle(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  )
-                                : null,
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (action) {
-                              if (action == 'modifier') {
-                                _modifierTarif(context, tarif);
-                              } else if (action == 'archiver') {
-                                _archiverTarif(context, tarif);
-                              } else if (action == 'reactiver') {
-                                _reactiverTarif(tarif);
-                              } else if (action == 'supprimer') {
-                                _supprimerTarif(context, tarif);
-                              }
-                            },
-                            itemBuilder: (_) => _afficherArchives
-                                ? const [
-                                    PopupMenuItem(
-                                      value: 'reactiver',
-                                      child: Text('Réactiver'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'supprimer',
-                                      child: Text('Supprimer'),
-                                    ),
-                                  ]
-                                : const [
-                                    PopupMenuItem(
-                                      value: 'modifier',
-                                      child: Text('Modifier'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'archiver',
-                                      child: Text('Archiver'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'supprimer',
-                                      child: Text('Supprimer'),
-                                    ),
-                                  ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
+          // ── Tarifs ──
+          _sectionTitre(context, 'Tarifs'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.sell_outlined),
+              title: const Text('Tarifs'),
+              subtitle: Text(
+                tarifsActifs.isEmpty
+                    ? 'Aucun tarif défini'
+                    : tarifsActifs.length == 1
+                        ? '1 tarif actif'
+                        : '${tarifsActifs.length} tarifs actifs',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TarifsScreen()),
+              ),
+            ),
           ),
+
+          // ── Planification ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'Planification'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.schedule_outlined),
+              title: const Text('Espacement minimum entre cours'),
+              subtitle: Text(
+                espacement == 0
+                    ? 'Aucun espacement'
+                    : '$espacement min entre la fin d\'un cours et le début du suivant',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _choisirEspacement(context, ref, espacement),
+            ),
+          ),
+
+          // ── Sauvegarde ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'Sauvegarde'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.save_outlined),
+              title: const Text('Exporter une sauvegarde'),
+              subtitle: const Text('Un seul fichier — toutes les données'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _exporterSauvegarde(context, ref),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.restore_outlined),
+              title: const Text('Restaurer une sauvegarde'),
+              subtitle: const Text('Remplace toutes les données actuelles'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _importerSauvegarde(context, ref),
+            ),
+          ),
+
           // ── Données ──
           const SizedBox(height: 24),
-          Text(
-            'Données',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
+          _sectionTitre(context, 'Données'),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
@@ -137,55 +97,116 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               onTap: () => _exporter(context, ref),
             ),
           ),
-        ],
-      ),
-      floatingActionButton: _afficherArchives
-          ? null
-          : FloatingActionButton(
-              onPressed: () => _afficherDialogue(context, null),
-              child: const Icon(Icons.add),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.upload_outlined),
+              title: const Text('Importer des données'),
+              subtitle: const Text('CSV — élèves et payeurs'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ImportScreen()),
+              ),
             ),
-    );
-  }
-
-  Future<void> _modifierTarif(BuildContext context, Tarif tarif) async {
-    await _afficherDialogue(context, tarif);
-  }
-
-  Future<void> _reactiverTarif(Tarif tarif) async {
-    await ref.read(tarifsDaoProvider).reactiverTarif(tarif.tarifsId);
-  }
-
-  Future<void> _archiverTarif(BuildContext context, Tarif tarif) async {
-    final confirmer = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Archiver ce tarif ?'),
-        content: Text(
-            'Le tarif ${tarif.duree} min sera fermé aujourd\'hui et n\'apparaîtra plus dans la liste active.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Archiver'),
           ),
         ],
       ),
     );
-    if (confirmer == true && context.mounted) {
-      await ref.read(tarifsDaoProvider).fermerTarif(tarif.tarifsId);
+  }
+
+  Widget _sectionTitre(BuildContext context, String titre) {
+    return Text(
+      titre,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+    );
+  }
+
+  Future<void> _choisirEspacement(
+      BuildContext context, WidgetRef ref, int valeurActuelle) async {
+    int selectionne = valeurActuelle;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Espacement minimum'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Durée minimale entre la fin d\'un cours et le début du suivant.',
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [0, 5, 10, 15, 20, 30, 45, 60].map((v) {
+                  return ChoiceChip(
+                    label: Text(v == 0 ? 'Aucun' : '$v min'),
+                    selected: selectionne == v,
+                    onSelected: (_) => setDialogState(() => selectionne = v),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                ref
+                    .read(espacementProvider.notifier)
+                    .setEspacement(selectionne);
+                Navigator.pop(context);
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exporterSauvegarde(BuildContext context, WidgetRef ref) async {
+    try {
+      await BackupService.exporterSauvegarde(
+        ref.read(databaseProvider),
+        ref.read(elevesDaoProvider),
+        ref.read(payeursDaoProvider),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur export sauvegarde : $e')),
+        );
+      }
     }
   }
 
-  Future<void> _supprimerTarif(BuildContext context, Tarif tarif) async {
+  Future<void> _importerSauvegarde(BuildContext context, WidgetRef ref) async {
+    // Étape 1 — sélection du fichier
+    final contenu = await BackupService.choisirFichier();
+    if (contenu == null) return;
+    if (!context.mounted) return;
+
+    // Étape 2 — confirmation explicite avant destruction
     final confirmer = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Supprimer ce tarif ?'),
-        content: Text('Le tarif ${tarif.duree} min sera supprimé définitivement.'),
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer la restauration'),
+        content: const Text(
+          'Toutes vos données actuelles seront définitivement supprimées '
+          '(élèves, payeurs, cours, tarifs) et remplacées par celles '
+          'de la sauvegarde.\n\n'
+          'Cette action est irréversible.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -194,157 +215,37 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Supprimer'),
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Supprimer et restaurer'),
           ),
         ],
       ),
     );
-    if (confirmer == true && context.mounted) {
-      await ref.read(tarifsDaoProvider).deleteTarif(tarif.tarifsId);
-    }
-  }
+    if (confirmer != true) return;
+    if (!context.mounted) return;
 
-  Future<void> _afficherDialogue(BuildContext context, Tarif? tarifActuel) async {
-    final dureeCtrl = TextEditingController(
-      text: tarifActuel?.duree.toString() ?? '',
-    );
-    final prixCtrl = TextEditingController(
-      text: tarifActuel?.prix.toStringAsFixed(2) ?? '',
-    );
-    DateTime dateDebut = tarifActuel?.dateDebut ?? DateTime.now();
-    DateTime? dateFin = tarifActuel?.dateFin;
-    final formKey = GlobalKey<FormState>();
-
-    final confirmer = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(tarifActuel != null ? 'Modifier le tarif' : 'Nouveau tarif'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: dureeCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Durée (minutes) *',
-                      suffixText: 'min',
-                    ),
-                    enabled: tarifActuel == null,
-                    validator: (v) =>
-                        TarifValidator.validateDuree(int.tryParse(v ?? '')),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: prixCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Prix *',
-                      suffixText: '€',
-                    ),
-                    validator: (v) => TarifValidator.validatePrix(
-                        double.tryParse(v?.replaceAll(',', '.') ?? '')),
-                  ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Date de début'),
-                    subtitle: Text(_formatDate(dateDebut)),
-                    trailing: const Icon(Icons.calendar_today_outlined),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: dateDebut,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => dateDebut = picked);
-                      }
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Date de fin'),
-                    subtitle: Text(
-                        dateFin != null ? _formatDate(dateFin!) : 'Aucune'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (dateFin != null)
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            tooltip: 'Effacer la date de fin',
-                            onPressed: () =>
-                                setDialogState(() => dateFin = null),
-                          ),
-                        const Icon(Icons.calendar_today_outlined),
-                      ],
-                    ),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: dateFin ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => dateFin = picked);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmer == true && context.mounted) {
-      final duree = int.tryParse(dureeCtrl.text);
-      final prix = double.tryParse(prixCtrl.text.replaceAll(',', '.'));
-      if (duree == null || prix == null) return;
-
-      if (tarifActuel != null) {
-        await ref.read(tarifsDaoProvider).updateTarif(TarifsCompanion(
-              tarifsId: Value(tarifActuel.tarifsId),
-              duree: Value(duree),
-              prix: Value(prix),
-              dateDebut: Value(dateDebut),
-              dateFin: Value(dateFin),
-            ));
-      } else {
-        await ref
-            .read(tarifsDaoProvider)
-            .creerNouveauTarif(duree, prix, dateDebut);
+    // Étape 3 — restauration
+    try {
+      await BackupService.importerSauvegarde(contenu, ref.read(databaseProvider));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sauvegarde restaurée avec succès')),
+        );
+      }
+    } on FormatException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur restauration : $e')),
+        );
       }
     }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year}';
   }
 
   Future<void> _exporter(BuildContext context, WidgetRef ref) async {

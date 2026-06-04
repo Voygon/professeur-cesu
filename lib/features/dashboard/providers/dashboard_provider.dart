@@ -24,6 +24,26 @@ class PlanificationService {
 
     return coursDao.planifierCoursSemainePourTous(elevesHebdo, lundi);
   }
+
+  Future<int> planifierPeriode(DateTime debut, DateTime fin) async{
+    final eleveDao = _ref.read(elevesDaoProvider);
+    final coursDao = _ref.read(coursDaoProvider);
+    final eleveHebdo = await eleveDao.watchElevesHebdo().first;
+
+    int total = 0;
+
+    // Trouve le premier lundi de la periode
+    DateTime lundi = debut.subtract(Duration(days: debut.weekday -1));
+    lundi = DateTime(lundi.year, lundi.month, lundi.day);
+
+    // Itère sur chaque semaine jusqu'à la fin de la période
+    while (lundi.isBefore(fin)){
+      total+= await coursDao.planifierCoursSemainePourTous(eleveHebdo, lundi);
+      lundi = lundi.add(const Duration(days: 7));
+    }
+
+    return total;
+  }
 }
 
 final coursDuJourProvider = StreamProvider<List<Cour>>((ref) {

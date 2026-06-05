@@ -44,6 +44,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _heureArrierePlan = DateTime.now();
   }
 
+  void continuer() => state = AuthState.authentifie;
+
   Future<void> revenirAuPremierPlan() async {
     // Si l'app n'est pas encore authentifiée, on force la vérification
     if (state != AuthState.authentifie) {

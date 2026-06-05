@@ -10,6 +10,7 @@ import '../../../core/import/import_screen.dart';
 import '../../../core/notifications/notification_service.dart';
 import '../../../core/supabase/auth_supabase_service.dart';
 import '../../../core/supabase/supabase_provider.dart';
+import '../../../core/supabase/sync_service.dart';
 import 'tarifs_screen.dart';
 
 class ParametresScreen extends ConsumerWidget {
@@ -93,16 +94,26 @@ class ParametresScreen extends ConsumerWidget {
                 ?? AuthSupabaseService.currentUser;
             final estConnecte = supabaseUser != null;
             return Card(
-              child: ListTile(
-                leading: Icon(estConnecte
-                    ? Icons.cloud_done_outlined
-                    : Icons.cloud_off_outlined),
-                title: const Text('Compte Supabase'),
-                subtitle: Text(estConnecte
-                    ? 'Connecté : ${supabaseUser.email}'
-                    : 'Non connecté — données locales uniquement'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _gererConnexionSupabase(context, estConnecte, supabaseUser),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: Icon(estConnecte
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_off_outlined),
+                    title: const Text('Compte Supabase'),
+                    subtitle: Text(estConnecte
+                        ? 'Connecté : ${supabaseUser.email}'
+                        : 'Non connecté — données locales uniquement'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        _gererConnexionSupabase(context, estConnecte, supabaseUser),
+                  ),
+                  if (estConnecte) ...[
+                    const Divider(height: 1),
+                    const _SyncRow(),
+                  ],
+                ],
               ),
             );
           }),
@@ -156,6 +167,27 @@ class ParametresScreen extends ConsumerWidget {
               ),
             ),
           ),
+
+          // ── À propos ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'À propos'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outlined),
+              title: const Text('Maestro'),
+              subtitle: const Text('© 2026 Sylvain Nichilo — Tous droits réservés'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showAboutDialog(
+                context: context,
+                applicationName: 'Maestro',
+                applicationVersion: '1.0.0',
+                applicationLegalese:
+                    '© 2026 Sylvain Nichilo\nTous droits réservés\nsylvain.nichilo16@gmail.com',
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -223,6 +255,7 @@ class ParametresScreen extends ConsumerWidget {
 
   Future<void> _choisirRappel(BuildContext context) async {
     int selectionne = await NotificationService.getRappelMinutes();
+    if (!context.mounted) return;
 
     await showDialog<void>(
       context: context,
@@ -401,6 +434,91 @@ class ParametresScreen extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ligne "dernière sync + bouton Synchroniser" dans la carte Supabase
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SyncRow extends ConsumerStatefulWidget {
+  const _SyncRow();
+
+  @override
+  ConsumerState<_SyncRow> createState() => _SyncRowState();
+}
+
+class _SyncRowState extends ConsumerState<_SyncRow> {
+  bool _enCours = false;
+
+  Future<void> _sync(BuildContext context) async {
+    setState(() => _enCours = true);
+    try {
+      await SyncService.synchroniser(
+        ref.read(databaseProvider),
+        ref.read(elevesDaoProvider),
+        ref.read(payeursDaoProvider),
+      );
+      ref.invalidate(derniereSyncProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Synchronisation terminée')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur sync : $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enCours = false);
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    final j = d.day.toString().padLeft(2, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final h = d.hour.toString().padLeft(2, '0');
+    final min = d.minute.toString().padLeft(2, '0');
+    return '$j/$m/${d.year} $h:$min';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final syncAsync = ref.watch(derniereSyncProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: syncAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (date) => Text(
+                date == null
+                    ? 'Jamais synchronisé'
+                    : 'Dernière sync : ${_formatDate(date)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _enCours ? null : () => _sync(context),
+            icon: _enCours
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync, size: 18),
+            label: const Text('Synchroniser'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

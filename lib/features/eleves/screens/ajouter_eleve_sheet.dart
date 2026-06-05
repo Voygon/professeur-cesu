@@ -466,19 +466,23 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
         style: Theme.of(context).textTheme.titleSmall,
       ),
       const SizedBox(height: 8),
-      RadioListTile<bool>(
-        title: const Text('Un parent ou une autre personne'),
-        value: false,
+      RadioGroup<bool>(
         groupValue: _eleveEstPayeur,
-        onChanged: (val) => setState(() => _eleveEstPayeur = val!),
-        contentPadding: EdgeInsets.zero,
-      ),
-      RadioListTile<bool>(
-        title: const Text('L\'élève lui-même (adulte)'),
-        value: true,
-        groupValue: _eleveEstPayeur,
-        onChanged: (val) => setState(() => _eleveEstPayeur = val!),
-        contentPadding: EdgeInsets.zero,
+        onChanged: (val) => setState(() => _eleveEstPayeur = val ?? false),
+        child: Column(
+          children: [
+            RadioListTile<bool>(
+              title: const Text('Un parent ou une autre personne'),
+              value: false,
+              contentPadding: EdgeInsets.zero,
+            ),
+            RadioListTile<bool>(
+              title: const Text('L\'élève lui-même (adulte)'),
+              value: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
       ),
       if (_eleveEstPayeur) ...[
         const SizedBox(height: 16),

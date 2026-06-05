@@ -24,6 +24,154 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   DateTime? _plageDebut = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _plageFin = DateTime.now();
 
+  bool _modeSelection = false;
+  final Set<int> _selection = {};
+  List<Cour> _coursCourants = const [];
+
+  void _quitterModeSelection() {
+    setState(() {
+      _modeSelection = false;
+      _selection.clear();
+    });
+  }
+
+  Future<void> _validerSelection(BuildContext context) async {
+    if (_selection.isEmpty) return;
+    final coursMap = {for (final c in _coursCourants) c.coursId: c};
+    final coursDaoLocal = ref.read(coursDaoProvider);
+    final elevesDaoLocal = ref.read(elevesDaoProvider);
+    final tarifsDao = ref.read(tarifsDaoProvider);
+
+    int nbValides = 0;
+    int nbIgnores = 0;
+
+    for (final coursId in Set<int>.from(_selection)) {
+      final cour = coursMap[coursId];
+      if (cour == null) continue;
+      if (StatutCours.fromDb(cour.statut) != StatutCours.prevu) {
+        nbIgnores++;
+        continue;
+      }
+      final eleve = await elevesDaoLocal.getEleve(cour.elevesId);
+      if (eleve == null) continue;
+      final duree = cour.dureeReelle ?? eleve.dureeCours ?? 60;
+      final montant = await tarifsDao.calculerMontant(duree);
+      if (montant == null) {
+        nbIgnores++;
+        continue;
+      }
+      await coursDaoLocal.validerCours(
+        coursId,
+        montant: montant,
+        dureeReelle: duree,
+        eleve: eleve,
+      );
+      nbValides++;
+    }
+
+    _quitterModeSelection();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(nbIgnores > 0
+            ? '$nbValides cours validé${nbValides > 1 ? 's' : ''} ($nbIgnores ignoré${nbIgnores > 1 ? 's' : ''})'
+            : '$nbValides cours validé${nbValides > 1 ? 's' : ''}'),
+      ));
+    }
+  }
+
+  Future<void> _annulerSelection(BuildContext context) async {
+    if (_selection.isEmpty) return;
+    final coursMap = {for (final c in _coursCourants) c.coursId: c};
+    final aAnnuler = _selection
+        .map((id) => coursMap[id])
+        .whereType<Cour>()
+        .where((c) => StatutCours.fromDb(c.statut) != StatutCours.annule)
+        .toList();
+
+    if (aAnnuler.isEmpty) {
+      _quitterModeSelection();
+      return;
+    }
+
+    final nbPayes = aAnnuler.where((c) => c.paye).length;
+    final n = aAnnuler.length;
+
+    final confirmer = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Annuler les cours ?'),
+        content: Text(nbPayes > 0
+            ? 'Vous allez annuler $n cours.\n\n'
+                '$nbPayes ${nbPayes > 1 ? 'sont déjà marqués comme payés' : 'est déjà marqué comme payé'} — '
+                'leur paiement sera également annulé.'
+            : 'Annuler $n cours sélectionné${n > 1 ? 's' : ''} ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Non'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Oui, annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmer != true || !context.mounted) return;
+
+    final coursDaoLocal = ref.read(coursDaoProvider);
+    for (final cour in aAnnuler) {
+      await coursDaoLocal.annulerCours(cour.coursId);
+    }
+
+    _quitterModeSelection();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$n cours annulé${n > 1 ? 's' : ''}'),
+      ));
+    }
+  }
+
+  Widget _buildBarreActions(BuildContext context) {
+    final n = _selection.length;
+    final colorScheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh,
+          border: Border(
+            top: BorderSide(color: colorScheme.outlineVariant),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _validerSelection(context),
+                icon: const Icon(Icons.check),
+                label: Text('Valider ($n)'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _annulerSelection(context),
+                icon: const Icon(Icons.cancel_outlined),
+                label: Text('Annuler ($n)'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _afficherDialoguePlanification(BuildContext context, WidgetRef ref) async {
     String mode = 'semaine';
     DateTime debut = DateTime.now();
@@ -284,16 +432,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Planning'),
-        actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.event_repeat_outlined),
-            label: const Text('Planifier'),
-            onPressed: () => _afficherDialoguePlanification(context, ref),
-          ),
-          const SizedBox(width: 4),
-        ],
+        leading: _modeSelection
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _quitterModeSelection,
+              )
+            : null,
+        title: _modeSelection
+            ? Text('${_selection.length} sélectionné${_selection.length > 1 ? 's' : ''}')
+            : const Text('Planning'),
+        actions: _modeSelection
+            ? []
+            : [
+                TextButton.icon(
+                  icon: const Icon(Icons.event_repeat_outlined),
+                  label: const Text('Planifier'),
+                  onPressed: () => _afficherDialoguePlanification(context, ref),
+                ),
+                const SizedBox(width: 4),
+              ],
       ),
+      bottomNavigationBar: _modeSelection ? _buildBarreActions(context) : null,
       body: Column(
         children: [
           // ── Sélecteur de période ────────────────────────────────────────
@@ -393,6 +552,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(child: Text('Erreur : $err')),
               data: (listeCours) {
+                _coursCourants = listeCours;
                 final coursEnConflit = ConflitHoraire.detecterConflitsCours(
                     listeCours,
                     espacement: ref.watch(espacementProvider));
@@ -428,7 +588,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               : Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Dismissible(
-                                key: ValueKey(cour.coursId), 
+                                key: ValueKey(cour.coursId),
+                                direction: _modeSelection
+                                    ? DismissDirection.none
+                                    : DismissDirection.horizontal,
                                 // Swipe droite
                                 background: Container(
                                   alignment: Alignment.centerLeft,
@@ -519,16 +682,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   return false; // Ne jamais supprimé la carte
                                 },
                                 child: GestureDetector(
-                                  onTap: () => showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    builder: (_) => ValiderCoursSheet(cours: cour, eleve: eleve),
-                                  ),
+                                  onTap: _modeSelection
+                                      ? () => setState(() {
+                                            if (_selection.contains(cour.coursId)) {
+                                              _selection.remove(cour.coursId);
+                                              if (_selection.isEmpty) _modeSelection = false;
+                                            } else {
+                                              _selection.add(cour.coursId);
+                                            }
+                                          })
+                                      : () => showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            builder: (_) => ValiderCoursSheet(cours: cour, eleve: eleve),
+                                          ),
+                                  onLongPress: _modeSelection
+                                      ? null
+                                      : () => setState(() {
+                                            _modeSelection = true;
+                                            _selection.add(cour.coursId);
+                                          }),
                                   child: CoursTile(
                                     cours: cour,
                                     eleve: eleve,
                                     enConflit: coursEnConflit.contains(cour.coursId),
                                     espacement: ref.watch(espacementProvider),
+                                    enModeSelection: _modeSelection,
+                                    estSelectionne: _selection.contains(cour.coursId),
                                   ),
                                 ),
                               ),

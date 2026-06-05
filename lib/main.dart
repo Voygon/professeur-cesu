@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Sylvain Nichilo. Tous droits réservés.
+// Propriété exclusive de Sylvain Nichilo — sylvain.nichilo16@gmail.com
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
@@ -20,7 +24,13 @@ void main() async {
     anonKey: SupabaseConfig.anonKey,
   );
 
-  await EncryptionService.init();
+  try {
+    await EncryptionService.init();
+  } catch (e) {
+    // Android Keystore peut échouer sur certains appareils ARM64
+    // L'app continue sans chiffrement plutôt que de crasher
+    debugPrint('EncryptionService init failed: $e');
+  }
   await NotificationService.init();
   runApp(const ProviderScope(child: ProfesseurCesuApp()));
 }
@@ -59,11 +69,30 @@ class _AppGuardState extends ConsumerState<_AppGuard>
     with WidgetsBindingObserver {
   bool _consentementAccepte = false;
   bool _onboardingSupabaseFait = false;
+  StreamSubscription? _supabaseAuthSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Écoute les connexions Supabase — notamment le retour du deep link de
+    // confirmation email. Si l'onboarding n'est pas encore marqué fait, on le
+    // complète automatiquement dès que la session s'établit.
+    _supabaseAuthSub = Supabase.instance.client.auth.onAuthStateChange
+        .listen((data) async {
+      if (data.event == AuthChangeEvent.signedIn &&
+          mounted &&
+          _consentementAccepte &&
+          !_onboardingSupabaseFait) {
+        await RgpdService.marquerOnboardingSupabaseFait();
+        if (mounted) {
+          setState(() => _onboardingSupabaseFait = true);
+          ref.read(authProvider.notifier).verifier();
+        }
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final accepte = await RgpdService.isConsentementAccepte();
       final onboardingFait = await RgpdService.isOnboardingSupabaseFait();
@@ -81,7 +110,7 @@ class _AppGuardState extends ConsumerState<_AppGuard>
 
   @override
   void dispose() {
-    // Important : se désenregistrer pour éviter les fuites mémoire
+    _supabaseAuthSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -226,7 +255,7 @@ class _EcranAvertissement extends ConsumerWidget {
               onPressed: () {
                 // Pour l'instant, on laisse passer vers l'accueil
                 // Le vrai accueil sera branché quand on aura la navigation
-                ref.read(authProvider.notifier).state = AuthState.authentifie;
+                ref.read(authProvider.notifier).continuer();
               },
               child: const Text('Continuer quand même'),
             ),

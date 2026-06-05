@@ -5,7 +5,8 @@ import '../../../core/notifications/notification_service.dart';
 
 DateTime getLundiSemaine() {
   final maintenant = DateTime.now();
-  return maintenant.subtract(Duration(days: maintenant.weekday - 1));
+  final lundi = maintenant.subtract(Duration(days: maintenant.weekday - 1));
+  return DateTime(lundi.year, lundi.month, lundi.day);
 }
 
 final planificationServiceProvider = Provider<PlanificationService>((ref) {

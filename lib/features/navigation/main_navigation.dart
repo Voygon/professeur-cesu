@@ -8,6 +8,8 @@ import '../paiements/screens/paiements_screen.dart';
 import '../parametres/screens/parametres_screen.dart';
 import '../../core/notifications/notification_service.dart';
 import '../../core/database/database_provider.dart';
+import '../../core/supabase/auth_supabase_service.dart';
+import '../../core/supabase/sync_service.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -33,9 +35,21 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     super.initState();
     _tapSub = NotificationService.tapStream.listen(_ouvrirCours);
     _validerSub = NotificationService.validerStream.listen(_validerCours);
-    // Gère le cas "app tuée → relancée par tap sur une notification"
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await NotificationService.checkLaunchNotification();
+
+      // Sync silencieuse au démarrage si l'utilisateur est connecté à Supabase
+      if (AuthSupabaseService.isConnected) {
+        try {
+          await SyncService.synchroniser(
+            ref.read(databaseProvider),
+            ref.read(elevesDaoProvider),
+            ref.read(payeursDaoProvider),
+          );
+        } catch (_) {
+          // Erreur réseau au démarrage → on ignore silencieusement
+        }
+      }
     });
   }
 

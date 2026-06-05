@@ -19,7 +19,6 @@ class ImportScreen extends ConsumerStatefulWidget {
 class _ImportScreenState extends ConsumerState<ImportScreen> {
   List<LigneImport> _lignes = [];
   bool _chargement = false;
-  bool _pret = false; // true = parsing OK, prêt à insérer
 
   // ── Sélection du fichier ─────────────────────────────────────────────────
 
@@ -41,7 +40,6 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
 
       setState(() {
         _lignes = lignes;
-        _pret = true;
       });
     } catch (e) {
       if (mounted) {

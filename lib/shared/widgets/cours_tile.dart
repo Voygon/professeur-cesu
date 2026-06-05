@@ -8,6 +8,8 @@ class CoursTile extends StatelessWidget {
   final Eleve eleve;
   final bool enConflit;
   final int espacement;
+  final bool enModeSelection;
+  final bool estSelectionne;
 
   const CoursTile({
     super.key,
@@ -15,26 +17,40 @@ class CoursTile extends StatelessWidget {
     required this.eleve,
     this.enConflit = false,
     this.espacement = 15,
+    this.enModeSelection = false,
+    this.estSelectionne = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final heure = DateFormat('HH:mm').format(cours.datePrevue);
     final duree = cours.dureeReelle ?? 60;
     final statut = StatutCours.fromDb(cours.statut);
 
     return Card(
+      color: estSelectionne ? colorScheme.primaryContainer : null,
       shape: enConflit
           ? RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                  color: Theme.of(context).colorScheme.error, width: 2),
+              side: BorderSide(color: colorScheme.error, width: 2),
             )
           : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
+            if (enModeSelection) ...[
+              Icon(
+                estSelectionne
+                    ? Icons.check_circle
+                    : Icons.radio_button_unchecked,
+                color: estSelectionne
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,8 +67,7 @@ class CoursTile extends StatelessWidget {
                       if (enConflit) ...[
                         const SizedBox(width: 6),
                         Icon(Icons.schedule,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.error),
+                            size: 16, color: colorScheme.error),
                       ],
                     ],
                   ),
@@ -60,7 +75,7 @@ class CoursTile extends StatelessWidget {
                   Text(
                     '${DateFormat('dd/MM/yyyy').format(cours.datePrevue)} · $heure · $duree min',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                   ),
                   if (enConflit)
@@ -68,7 +83,7 @@ class CoursTile extends StatelessWidget {
                       'Moins de $espacement min avec un autre cours',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Theme.of(context).colorScheme.error,
+                        color: colorScheme.error,
                       ),
                     ),
                 ],

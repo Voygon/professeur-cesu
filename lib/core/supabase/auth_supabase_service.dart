@@ -12,7 +12,11 @@ class AuthSupabaseService {
   // ── Email / mot de passe ──────────────────────────────────────────────────
 
   static Future<void> inscrire(String email, String motDePasse) async {
-    await _client.auth.signUp(email: email, password: motDePasse);
+    await _client.auth.signUp(
+      email: email,
+      password: motDePasse,
+      emailRedirectTo: 'professeurcesu://auth-callback',
+    );
   }
 
   static Future<void> connecter(String email, String motDePasse) async {

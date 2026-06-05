@@ -61,9 +61,9 @@ class SyncService {
         'user_id': userId,
         'duree': t.duree,
         'prix': t.prix,
-        'date_debut': t.dateDebut.toIso8601String(),
-        'date_fin': t.dateFin?.toIso8601String(),
-        'created_at': t.createdAt.toIso8601String(),
+        'date_debut': t.dateDebut.toUtc().toIso8601String(),
+        'date_fin': t.dateFin?.toUtc().toIso8601String(),
+        'created_at': t.createdAt.toUtc().toIso8601String(),
       }, onConflict: 'tarifs_id,user_id');
     }
   }
@@ -85,8 +85,8 @@ class SyncService {
         'adress': p.adress,
         'cesu_plus': p.cesuPlus,
         'actif': p.actif,
-        'created_at': p.createdAt.toIso8601String(),
-        'updated_at': p.updatedAt.toIso8601String(),
+        'created_at': p.createdAt.toUtc().toIso8601String(),
+        'updated_at': p.updatedAt.toUtc().toIso8601String(),
       }, onConflict: 'payeur_id,user_id');
     }
   }
@@ -113,8 +113,8 @@ class SyncService {
         'payeur_id': e.payeurId,
         'nom_pere': e.nomPere,
         'nom_mere': e.nomMere,
-        'created_at': e.createdAt.toIso8601String(),
-        'updated_at': e.updatedAt.toIso8601String(),
+        'created_at': e.createdAt.toUtc().toIso8601String(),
+        'updated_at': e.updatedAt.toUtc().toIso8601String(),
       }, onConflict: 'eleves_id,user_id');
     }
   }
@@ -126,18 +126,18 @@ class SyncService {
         'cours_id': c.coursId,
         'user_id': userId,
         'eleves_id': c.elevesId,
-        'date_prevue': c.datePrevue.toIso8601String(),
-        'date_reelle': c.dateReelle?.toIso8601String(),
+        'date_prevue': c.datePrevue.toUtc().toIso8601String(),
+        'date_reelle': c.dateReelle?.toUtc().toIso8601String(),
         'duree_reelle': c.dureeReelle,
         'tarifs_id': c.tarifsId,
         'montant': c.montant,
         'paye': c.paye,
-        'date_paiement': c.datePaiement?.toIso8601String(),
+        'date_paiement': c.datePaiement?.toUtc().toIso8601String(),
         'statut': c.statut,
         'exceptionnel': c.exceptionnel,
         'notes': c.notes,
-        'created_at': c.createdAt.toIso8601String(),
-        'updated_at': c.updatedAt.toIso8601String(),
+        'created_at': c.createdAt.toUtc().toIso8601String(),
+        'updated_at': c.updatedAt.toUtc().toIso8601String(),
       }, onConflict: 'cours_id,user_id');
     }
   }
@@ -154,9 +154,9 @@ class SyncService {
           tarifsId: Value(row['tarifs_id'] as int),
           duree: Value(row['duree'] as int),
           prix: Value((row['prix'] as num).toDouble()),
-          dateDebut: Value(DateTime.parse(row['date_debut'] as String)),
+          dateDebut: Value(DateTime.parse(row['date_debut'] as String).toLocal()),
           dateFin: row['date_fin'] != null
-              ? Value(DateTime.parse(row['date_fin'] as String))
+              ? Value(DateTime.parse(row['date_fin'] as String).toLocal())
               : const Value<DateTime?>(null),
         ));
       }
@@ -227,9 +227,9 @@ class SyncService {
         await db.into(db.cours).insertOnConflictUpdate(CoursCompanion(
           coursId: Value(row['cours_id'] as int),
           elevesId: Value(row['eleves_id'] as int),
-          datePrevue: Value(DateTime.parse(row['date_prevue'] as String)),
+          datePrevue: Value(DateTime.parse(row['date_prevue'] as String).toLocal()),
           dateReelle: Value(row['date_reelle'] != null
-              ? DateTime.parse(row['date_reelle'] as String)
+              ? DateTime.parse(row['date_reelle'] as String).toLocal()
               : null),
           dureeReelle: Value(row['duree_reelle'] as int?),
           tarifsId: Value(row['tarifs_id'] as int?),
@@ -238,7 +238,7 @@ class SyncService {
               : null),
           paye: Value(row['paye'] as bool),
           datePaiement: Value(row['date_paiement'] != null
-              ? DateTime.parse(row['date_paiement'] as String)
+              ? DateTime.parse(row['date_paiement'] as String).toLocal()
               : null),
           statut: Value(row['statut'] as String),
           exceptionnel: Value(row['exceptionnel'] as bool),

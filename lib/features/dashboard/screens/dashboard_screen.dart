@@ -481,6 +481,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                           cour.coursId,
                                           montant: montant!,
                                           dureeReelle: cour.dureeReelle ?? eleve.dureeCours ?? 60,
+                                          eleve: eleve
                                         );
                                     }
                                   } else {
@@ -512,7 +513,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         );
                                         if (confirmer != true) return false;
                                       }
-                                      await ref.read(coursDaoProvider).remettreEnAttente(cour.coursId);
+                                      await ref.read(coursDaoProvider).remettreEnAttente(cour.coursId, eleve: eleve);
                                     }
                                   }
                                   return false; // Ne jamais supprimé la carte
@@ -527,6 +528,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     cours: cour,
                                     eleve: eleve,
                                     enConflit: coursEnConflit.contains(cour.coursId),
+                                    espacement: ref.watch(espacementProvider),
                                   ),
                                 ),
                               ),

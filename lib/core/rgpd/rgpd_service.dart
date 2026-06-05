@@ -5,6 +5,7 @@ class RgpdService {
 
   static const _keyConsentement = 'rgpd_consentement_accepte';
   static const _keyDateAcceptation = 'rgpd_date_acceptation';
+  static const _keyOnboardingSupabase = 'supabase_onboarding_fait';
 
   static Future<bool> isConsentementAccepte() async {
     final prefs = await SharedPreferences.getInstance();
@@ -22,6 +23,16 @@ class RgpdService {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyDateAcceptation);
     return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  static Future<bool> isOnboardingSupabaseFait() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyOnboardingSupabase) ?? false;
+  }
+
+  static Future<void> marquerOnboardingSupabaseFait() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyOnboardingSupabase, true);
   }
 
   static Future<void> resetConsentement() async {

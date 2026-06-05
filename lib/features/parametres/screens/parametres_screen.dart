@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/tarifs_provider.dart';
 import '../providers/parametres_provider.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/export/export_service.dart';
 import '../../../core/export/backup_service.dart';
 import '../../../core/import/import_screen.dart';
+import '../../../core/notifications/notification_service.dart';
+import '../../../core/supabase/auth_supabase_service.dart';
+import '../../../core/supabase/supabase_provider.dart';
 import 'tarifs_screen.dart';
 
 class ParametresScreen extends ConsumerWidget {
@@ -59,6 +63,49 @@ class ParametresScreen extends ConsumerWidget {
               onTap: () => _choisirEspacement(context, ref, espacement),
             ),
           ),
+
+          // ── Notifications ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'Notifications'),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Rappel avant les cours'),
+              subtitle: FutureBuilder<int>(
+                future: NotificationService.getRappelMinutes(),
+                builder: (context, snap) {
+                  final minutes = snap.data ?? 30;
+                  return Text('$minutes min avant chaque cours');
+                },
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _choisirRappel(context),
+            ),
+          ),
+
+          // ── Synchronisation cloud ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'Synchronisation cloud'),
+          const SizedBox(height: 8),
+          Builder(builder: (context) {
+            final supabaseUser = ref.watch(supabaseUserProvider).valueOrNull
+                ?? AuthSupabaseService.currentUser;
+            final estConnecte = supabaseUser != null;
+            return Card(
+              child: ListTile(
+                leading: Icon(estConnecte
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_off_outlined),
+                title: const Text('Compte Supabase'),
+                subtitle: Text(estConnecte
+                    ? 'Connecté : ${supabaseUser.email}'
+                    : 'Non connecté — données locales uniquement'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _gererConnexionSupabase(context, estConnecte, supabaseUser),
+              ),
+            );
+          }),
 
           // ── Sauvegarde ──
           const SizedBox(height: 24),
@@ -174,6 +221,90 @@ class ParametresScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _choisirRappel(BuildContext context) async {
+    int selectionne = await NotificationService.getRappelMinutes();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Rappel avant les cours'),
+          content: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [5, 10, 15, 20, 30, 45, 60].map((v) {
+              return ChoiceChip(
+                label: Text('$v min'),
+                selected: selectionne == v,
+                onSelected: (_) => setDialogState(() => selectionne = v),
+              );
+            }).toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                await NotificationService.setRappelMinutes(selectionne);
+                navigator.pop();
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _gererConnexionSupabase(
+    BuildContext context,
+    bool estConnecte,
+    User? currentUser,
+  ) async {
+    if (estConnecte) {
+      final confirmer = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Se déconnecter'),
+          content: Text(
+            'Connecté en tant que ${currentUser?.email ?? ''}.\n\n'
+            'Vos données locales ne seront pas supprimées.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              child: const Text('Se déconnecter'),
+            ),
+          ],
+        ),
+      );
+      if (confirmer == true) {
+        await AuthSupabaseService.deconnecter();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Déconnecté de Supabase')),
+          );
+        }
+      }
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => const _SupabaseConnexionSheet(),
+      );
+    }
+  }
+
   Future<void> _exporterSauvegarde(BuildContext context, WidgetRef ref) async {
     try {
       await BackupService.exporterSauvegarde(
@@ -270,5 +401,266 @@ class ParametresScreen extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom sheet de connexion / inscription Supabase (depuis Paramètres)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum _ConnexionMode { connexion, inscription }
+
+class _SupabaseConnexionSheet extends StatefulWidget {
+  const _SupabaseConnexionSheet();
+
+  @override
+  State<_SupabaseConnexionSheet> createState() =>
+      _SupabaseConnexionSheetState();
+}
+
+class _SupabaseConnexionSheetState extends State<_SupabaseConnexionSheet> {
+  _ConnexionMode _mode = _ConnexionMode.connexion;
+  final _emailCtrl = TextEditingController();
+  final _mdpCtrl = TextEditingController();
+  final _mdpConfirmCtrl = TextEditingController();
+  bool _chargement = false;
+  bool _mdpVisible = false;
+  String? _erreur;
+  String? _infoMessage;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _mdpCtrl.dispose();
+    _mdpConfirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _soumettre() async {
+    final email = _emailCtrl.text.trim();
+    final mdp = _mdpCtrl.text;
+
+    if (email.isEmpty || mdp.isEmpty) {
+      setState(() => _erreur = 'Remplissez tous les champs');
+      return;
+    }
+    if (_mode == _ConnexionMode.inscription) {
+      if (mdp != _mdpConfirmCtrl.text) {
+        setState(() => _erreur = 'Les mots de passe ne correspondent pas');
+        return;
+      }
+      if (mdp.length < 6) {
+        setState(
+            () => _erreur = 'Le mot de passe doit faire au moins 6 caractères');
+        return;
+      }
+    }
+
+    setState(() {
+      _chargement = true;
+      _erreur = null;
+      _infoMessage = null;
+    });
+
+    try {
+      if (_mode == _ConnexionMode.connexion) {
+        await AuthSupabaseService.connecter(email, mdp);
+        if (mounted) Navigator.pop(context);
+      } else {
+        await AuthSupabaseService.inscrire(email, mdp);
+        if (AuthSupabaseService.isConnected) {
+          if (mounted) Navigator.pop(context);
+        } else {
+          setState(() {
+            _infoMessage =
+                'Un email de confirmation a été envoyé à $email. '
+                'Confirmez votre adresse puis connectez-vous.';
+            _mode = _ConnexionMode.connexion;
+          });
+        }
+      }
+    } on AuthException catch (e) {
+      setState(() => _erreur = _traduire(e.message));
+    } catch (_) {
+      setState(() => _erreur = 'Erreur réseau — vérifiez votre connexion');
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  String _traduire(String msg) {
+    if (msg.contains('Invalid login credentials')) {
+      return 'Email ou mot de passe incorrect';
+    }
+    if (msg.contains('Email not confirmed')) {
+      return 'Confirmez votre email avant de vous connecter';
+    }
+    if (msg.contains('User already registered')) {
+      return 'Un compte existe déjà avec cet email';
+    }
+    if (msg.contains('Password should be at least')) {
+      return 'Le mot de passe doit faire au moins 6 caractères';
+    }
+    if (msg.contains('Unable to validate email')) {
+      return 'Adresse email invalide';
+    }
+    return msg;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.cloud_outlined),
+              const SizedBox(width: 12),
+              Text(
+                'Synchronisation cloud',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          SegmentedButton<_ConnexionMode>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                  value: _ConnexionMode.connexion,
+                  label: Text('Se connecter')),
+              ButtonSegment(
+                  value: _ConnexionMode.inscription,
+                  label: Text('Créer un compte')),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (s) => setState(() {
+              _mode = s.first;
+              _erreur = null;
+              _infoMessage = null;
+            }),
+          ),
+          const SizedBox(height: 20),
+
+          if (_infoMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      color: Theme.of(context).colorScheme.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _infoMessage!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          TextField(
+            controller: _emailCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            onChanged: (_) => setState(() => _erreur = null),
+          ),
+          const SizedBox(height: 12),
+
+          TextField(
+            controller: _mdpCtrl,
+            obscureText: !_mdpVisible,
+            decoration: InputDecoration(
+              labelText: 'Mot de passe',
+              prefixIcon: const Icon(Icons.lock_outlined),
+              suffixIcon: IconButton(
+                icon: Icon(_mdpVisible
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined),
+                onPressed: () => setState(() => _mdpVisible = !_mdpVisible),
+              ),
+            ),
+            textInputAction: _mode == _ConnexionMode.inscription
+                ? TextInputAction.next
+                : TextInputAction.done,
+            onSubmitted:
+                _mode == _ConnexionMode.connexion ? (_) => _soumettre() : null,
+            onChanged: (_) => setState(() => _erreur = null),
+          ),
+
+          if (_mode == _ConnexionMode.inscription) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _mdpConfirmCtrl,
+              obscureText: !_mdpVisible,
+              decoration: const InputDecoration(
+                labelText: 'Confirmer le mot de passe',
+                prefixIcon: Icon(Icons.lock_outlined),
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _soumettre(),
+              onChanged: (_) => setState(() => _erreur = null),
+            ),
+          ],
+
+          if (_erreur != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _erreur!,
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.error, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 20),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _chargement ? null : _soumettre,
+              child: _chargement
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(_mode == _ConnexionMode.connexion
+                      ? 'Se connecter'
+                      : 'Créer mon compte'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -79,6 +79,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
                   ? Value(_montant!)
                   : const Value.absent(),
             ),
+            eleve: _eleve!,
           );
       if (mounted) Navigator.of(context).pop();
     } finally {

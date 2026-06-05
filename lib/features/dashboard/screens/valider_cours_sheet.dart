@@ -79,14 +79,34 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
 
       await db.transaction(() async {
         if (nouvelleDatePrevue != widget.cours.datePrevue) {
-          await coursDao.deplacerCours(widget.cours.coursId, nouvelleDatePrevue);
+          await coursDao.deplacerCours(
+            widget.cours.coursId,
+            nouvelleDatePrevue,
+            eleve: widget.eleve,
+          );
         }
         await coursDao.validerCours(
           widget.cours.coursId,
           montant: _montant!,
           dureeReelle: _duree,
+          eleve: widget.eleve,
         );
       });
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _chargement = false);
+    }
+  }
+
+  Future<void> _enregistrerModifications() async {
+    setState(() => _chargement = true);
+    try {
+      await ref.read(coursDaoProvider).mettreAJourCoursPrevus(
+            widget.cours.coursId,
+            datePrevue: _nouvelleDatePrevue,
+            duree: _duree,
+            eleve: widget.eleve,
+          );
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _chargement = false);
@@ -116,7 +136,10 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
       ),
     );
     if (confirmer == true && mounted) {
-      await ref.read(coursDaoProvider).remettreEnAttente(widget.cours.coursId);
+      await ref.read(coursDaoProvider).remettreEnAttente(
+            widget.cours.coursId,
+            eleve: widget.eleve,
+          );
       if (mounted) Navigator.of(context).pop();
     }
   }
@@ -335,52 +358,70 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
                 const SizedBox(height: 24),
 
                 // ── Boutons ──
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _chargement ? null : _sauvegarder,
-                    icon: Icon(statut == StatutCours.prevu
-                        ? Icons.check
-                        : Icons.save_outlined),
-                    label: _chargement
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(statut == StatutCours.prevu
-                            ? 'Valider le cours'
-                            : 'Enregistrer les corrections'),
-                  ),
-                ),
                 if (statut == StatutCours.prevu) ...[
+                  // Valider le cours
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _chargement ? null : _sauvegarder,
+                      icon: const Icon(Icons.check),
+                      label: _chargement
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Valider le cours'),
+                    ),
+                  ),
                   const SizedBox(height: 12),
+                  // Modifier sans valider
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _annuler,
+                      onPressed: _chargement ? null : _enregistrerModifications,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Enregistrer les modifications'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Annuler le cours
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _chargement ? null : _annuler,
                       icon: const Icon(Icons.cancel_outlined),
                       label: const Text('Annuler le cours'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ),
-                ],
-                if (statut == StatutCours.effectue ||
-                    statut == StatutCours.modifie) ...[
+                ] else ...[
+                  // Effectué / Modifié — enregistrer les corrections
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _chargement ? null : _sauvegarder,
+                      icon: const Icon(Icons.save_outlined),
+                      label: _chargement
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Enregistrer les corrections'),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _remettreEnAttente,
+                      onPressed: _chargement ? null : _remettreEnAttente,
                       icon: const Icon(Icons.undo_outlined),
                       label: const Text('Annuler la validation'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor:
-                            Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ),

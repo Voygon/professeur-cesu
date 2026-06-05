@@ -43,9 +43,10 @@ class RgpdScreen extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
-              _point('Stockées uniquement sur votre appareil'),
-              _point('Chiffrées avec AES-256'),
-              _point('Jamais transmises à des tiers'),
+              _point('Stockées sur votre appareil et chiffrées avec AES-256'),
+              _point(
+                  'Synchronisées dans le cloud uniquement si vous créez un compte (optionnel)'),
+              _point('Jamais partagées avec des tiers'),
               _point('Supprimables à tout moment'),
               const SizedBox(height: 24),
               Text(

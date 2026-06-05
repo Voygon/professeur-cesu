@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../../../shared/models/recap_mois.dart';
 import '../../../shared/models/enums.dart';
+import '../../notifications/notification_service.dart';
 import '../app_database.dart';
 
 part 'cours_dao.g.dart';
@@ -12,6 +13,14 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
   Future<Cour?> getCours(int id) {
     return (select(cours)..where((c) => c.coursId.equals(id)))
         .getSingleOrNull();
+  }
+
+  // Planifie la notification si le cours n'est pas annulé.
+  Future<void> planifierNotifSiNecessaire(int coursId, Eleve eleve) async {
+    final cour = await getCours(coursId);
+    if (cour == null) return;
+    if (cour.statut == StatutCours.annule.toDb()) return;
+    await NotificationService.planifierNotificationCours(cour, eleve);
   }
 
   Stream<List<Cour>> watchCoursDuJour({bool inclureAnnules = false}) {
@@ -66,8 +75,13 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         .watch();
   }
 
-  Future<void> validerCours(int coursId,
-      {required double montant, int? dureeReelle, int? tarifId}) async {
+  Future<void> validerCours(
+    int coursId, {
+    required double montant,
+    int? dureeReelle,
+    int? tarifId,
+    required Eleve eleve,
+  }) async {
     await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
       CoursCompanion(
         statut: Value(StatutCours.effectue.toDb()),
@@ -78,9 +92,10 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await planifierNotifSiNecessaire(coursId, eleve);
   }
 
-  Future<void> remettreEnAttente(int coursId) async {
+  Future<void> remettreEnAttente(int coursId, {required Eleve eleve}) async {
     await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
       CoursCompanion(
         statut: Value(StatutCours.prevu.toDb()),
@@ -90,6 +105,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await planifierNotifSiNecessaire(coursId, eleve);
   }
 
   Future<void> annulerCours(int coursId, {String? notes}) async {
@@ -100,6 +116,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await NotificationService.annulerNotificationCours(coursId);
   }
 
   Future<void> modifierCours(int coursId,
@@ -155,13 +172,11 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           lundiSemaine.add(Duration(days: eleve.jourSemaine! - 1));
       final parties = eleve.heureDebut!.split(':');
 
-      // Vérifie que le format est bien HH:mm avant de parser
       if (parties.length != 2) return false;
 
       final heure = int.parse(parties[0]);
       final minute = int.parse(parties[1]);
 
-      // Vérifie que les valeurs sont dans les bornes valides
       if (heure < 0 || heure > 23 || minute < 0 || minute > 59) return false;
 
       final datePrevue = DateTime(
@@ -169,7 +184,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
 
       if (await coursExisteDeja(eleve.elevesId, datePrevue)) return false;
 
-      await into(cours).insert(CoursCompanion(
+      final id = await into(cours).insert(CoursCompanion(
         elevesId: Value(eleve.elevesId),
         datePrevue: Value(datePrevue),
         statut: Value(StatutCours.prevu.toDb()),
@@ -178,10 +193,13 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
             : const Value.absent(),
       ));
 
+      final cour = await getCours(id);
+      if (cour != null) {
+        await NotificationService.planifierNotificationCours(cour, eleve);
+      }
+
       return true;
     } catch (e) {
-      // Si une erreur inattendue survient (format invalide, overflow...),
-      // on refuse silencieusement plutôt que de crasher l'app
       return false;
     }
   }
@@ -195,16 +213,39 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     return nbCrees;
   }
 
-  Future<void> deplacerCours(int coursId, DateTime nouvelleDatePrevue) async {
-    await (update(cours)..where((c) => c.coursId.equals(coursId)))
-        .write(CoursCompanion(datePrevue: Value(nouvelleDatePrevue)));
+  Future<void> deplacerCours(
+    int coursId,
+    DateTime nouvelleDatePrevue, {
+    required Eleve eleve,
+  }) async {
+    await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
+        CoursCompanion(datePrevue: Value(nouvelleDatePrevue)));
+    await planifierNotifSiNecessaire(coursId, eleve);
+  }
+
+  /// Met à jour date et durée d'un cours prévu sans changer son statut.
+  Future<void> mettreAJourCoursPrevus(
+    int coursId, {
+    required DateTime datePrevue,
+    required int duree,
+    required Eleve eleve,
+  }) async {
+    await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
+      CoursCompanion(
+        datePrevue: Value(datePrevue),
+        dureeReelle: Value(duree),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await planifierNotifSiNecessaire(coursId, eleve);
   }
 
   Future<bool> updateCours(CoursCompanion cour) {
     return update(cours).replace(cour);
   }
 
-  Future<int> deleteCours(int id) {
+  Future<int> deleteCours(int id) async {
+    await NotificationService.annulerNotificationCours(id);
     return (delete(cours)..where((c) => c.coursId.equals(id))).go();
   }
 
@@ -212,9 +253,18 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     return (delete(cours)..where((c) => c.elevesId.equals(eleveId))).go();
   }
 
-  Future<int> insertCoursExceptionnel(CoursCompanion companion) {
-    return into(cours)
-        .insert(companion.copyWith(exceptionnel: const Value(true)));
+  Future<int> insertCoursExceptionnel(
+    CoursCompanion companion, {
+    required Eleve eleve,
+  }) async {
+    final id = await into(cours).insert(
+      companion.copyWith(exceptionnel: const Value(true)),
+    );
+    final cour = await getCours(id);
+    if (cour != null) {
+      await NotificationService.planifierNotificationCours(cour, eleve);
+    }
+    return id;
   }
 
   Future<void> marquerCoursPaye(int coursId) async {
@@ -309,10 +359,8 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
               .isSmallerThanValue(finMois));
 
-    // getSingleOrNull au lieu de getSingle — retourne null si erreur
     final result = await query.getSingleOrNull();
 
-    // Si pas de résultat, on retourne un RecapMois vide plutôt que de crasher
     if (result == null) {
       return RecapMois(
         nbCoursValides: 0,

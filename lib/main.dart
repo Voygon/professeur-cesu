@@ -1,16 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'core/auth/auth_provider.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/rgpd/rgpd_screen.dart';
 import 'core/rgpd/rgpd_service.dart';
 import 'core/security/encryption_service.dart';
 import 'core/database/database_provider.dart';
+import 'core/supabase/supabase_config.dart';
+import 'core/supabase/supabase_onboarding_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'features/navigation/main_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
+  );
+
   await EncryptionService.init();
+  await NotificationService.init();
   runApp(const ProviderScope(child: ProfesseurCesuApp()));
 }
 
@@ -47,6 +58,7 @@ class _AppGuard extends ConsumerStatefulWidget {
 class _AppGuardState extends ConsumerState<_AppGuard>
     with WidgetsBindingObserver {
   bool _consentementAccepte = false;
+  bool _onboardingSupabaseFait = false;
 
   @override
   void initState() {
@@ -54,9 +66,13 @@ class _AppGuardState extends ConsumerState<_AppGuard>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final accepte = await RgpdService.isConsentementAccepte();
+      final onboardingFait = await RgpdService.isOnboardingSupabaseFait();
       if (mounted) {
-        setState(() => _consentementAccepte = accepte);
-        if (accepte) {
+        setState(() {
+          _consentementAccepte = accepte;
+          _onboardingSupabaseFait = onboardingFait;
+        });
+        if (accepte && onboardingFait) {
           ref.read(authProvider.notifier).verifier();
         }
       }
@@ -93,6 +109,15 @@ class _AppGuardState extends ConsumerState<_AppGuard>
       return RgpdScreen(
         onAccepte: () {
           setState(() => _consentementAccepte = true);
+          // Ne pas appeler verifier() ici — attendre l'onboarding Supabase
+        },
+      );
+    }
+
+    if (!_onboardingSupabaseFait) {
+      return SupabaseOnboardingScreen(
+        onComplete: () {
+          setState(() => _onboardingSupabaseFait = true);
           ref.read(authProvider.notifier).verifier();
         },
       );

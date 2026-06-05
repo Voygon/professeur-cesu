@@ -7,12 +7,14 @@ class CoursTile extends StatelessWidget {
   final Cour cours;
   final Eleve eleve;
   final bool enConflit;
+  final int espacement;
 
   const CoursTile({
     super.key,
     required this.cours,
     required this.eleve,
     this.enConflit = false,
+    this.espacement = 15,
   });
 
   @override
@@ -63,7 +65,7 @@ class CoursTile extends StatelessWidget {
                   ),
                   if (enConflit)
                     Text(
-                      'Moins de 15 min avec un autre cours',
+                      'Moins de $espacement min avec un autre cours',
                       style: TextStyle(
                         fontSize: 11,
                         color: Theme.of(context).colorScheme.error,

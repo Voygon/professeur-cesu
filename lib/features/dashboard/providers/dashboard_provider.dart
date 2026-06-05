@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/notifications/notification_service.dart';
 
 DateTime getLundiSemaine() {
   final maintenant = DateTime.now();
@@ -43,6 +44,25 @@ class PlanificationService {
     }
 
     return total;
+  }
+
+  Future<int> planifierPeriodeAvecNotifications(
+    DateTime debut,
+    DateTime fin,
+  ) async {
+    final nb = await planifierPeriode(debut, fin);
+
+    final cours = await _ref
+        .read(coursDaoProvider)
+        .watchCoursParPeriodeTous(debut, fin.add(const Duration(days: 7)))
+        .first;
+
+    final eleves = await _ref.read(elevesDaoProvider).watchElevesActifs().first;
+    final elevesMap = {for (final e in eleves) e.elevesId: e};
+
+    await NotificationService.replanifierTout(cours, elevesMap);
+
+    return nb;
   }
 }
 

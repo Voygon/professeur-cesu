@@ -51,6 +51,33 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
     return (int.tryParse(p[0]) ?? 0) * 60 + (int.tryParse(p[1]) ?? 0);
   }
 
+  // Retourne une liste plate : String = séparateur de jour, Eleve = carte.
+  // Uniquement utilisé en mode horaire.
+  List<Object> _buildListItems(List<Eleve> eleves) {
+    final items = <Object>[];
+    int? currentJour;
+    bool sansCreneau = false;
+
+    for (final eleve in eleves) {
+      final hasHebdo = eleve.hebdo && eleve.jourSemaine != null;
+      if (hasHebdo) {
+        if (eleve.jourSemaine != currentJour) {
+          currentJour = eleve.jourSemaine;
+          final j = JourSemaine.fromValeur(eleve.jourSemaine!);
+          items.add(
+              '${j.name[0].toUpperCase()}${j.name.substring(1)}');
+        }
+      } else {
+        if (!sansCreneau) {
+          sansCreneau = true;
+          items.add('Sans créneau fixe');
+        }
+      }
+      items.add(eleve);
+    }
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final elevesAsync = _afficherArchives
@@ -117,59 +144,97 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
               ),
               // ── Liste ──
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: eleves.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final eleve = eleves[index];
-                    final enConflit =
-                        elevesEnConflit.contains(eleve.elevesId);
+                child: Builder(builder: (context) {
+                  final items = _tri == _TriEleves.horaire
+                      ? _buildListItems(eleves)
+                      : eleves;
 
-                    return Card(
-                      shape: enConflit
-                          ? RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                color: Theme.of(context).colorScheme.error,
-                                width: 2,
-                              ),
-                            )
-                          : null,
-                      child: ListTile(
-                        title: Row(
-                          children: [
-                            Text('${eleve.prenom} ${eleve.nom}'),
-                            if (enConflit) ...[
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.schedule,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                            ],
-                          ],
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+
+                      // Séparateur de jour (mode horaire uniquement)
+                      if (item is String) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 0 : 16,
+                            bottom: 6,
+                          ),
+                          child: Text(
+                            item,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        );
+                      }
+
+                      final eleve = item as Eleve;
+                      final enConflit =
+                          elevesEnConflit.contains(eleve.elevesId);
+                      final isLast = index == items.length - 1;
+                      final nextIsSeparator =
+                          !isLast && items[index + 1] is String;
+
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: (isLast || nextIsSeparator) ? 0 : 8,
                         ),
-                        subtitle: Text(() {
-                          final base = eleve.hebdo &&
-                                  eleve.jourSemaine != null
-                              ? 'Hebdo — ${JourSemaine.fromValeur(eleve.jourSemaine!).name[0].toUpperCase()}${JourSemaine.fromValeur(eleve.jourSemaine!).name.substring(1)} à ${eleve.heureDebut}'
-                              : 'Cours ponctuels';
-                          return eleve.dureeCours != null
-                              ? '$base · ${eleve.dureeCours} min'
-                              : base;
-                        }()),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                FicheEleveScreen(eleveId: eleve.elevesId),
+                        child: Card(
+                          shape: enConflit
+                              ? RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                    width: 2,
+                                  ),
+                                )
+                              : null,
+                          child: ListTile(
+                            title: Row(
+                              children: [
+                                Text('${eleve.prenom} ${eleve.nom}'),
+                                if (enConflit) ...[
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.schedule,
+                                    size: 16,
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(() {
+                              final base = eleve.hebdo &&
+                                      eleve.jourSemaine != null
+                                  ? 'Hebdo — ${JourSemaine.fromValeur(eleve.jourSemaine!).name[0].toUpperCase()}${JourSemaine.fromValeur(eleve.jourSemaine!).name.substring(1)} à ${eleve.heureDebut}'
+                                  : 'Cours ponctuels';
+                              return eleve.dureeCours != null
+                                  ? '$base · ${eleve.dureeCours} min'
+                                  : base;
+                            }()),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    FicheEleveScreen(eleveId: eleve.elevesId),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  );
+                }),
               ),
             ],
           );

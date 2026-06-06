@@ -10,6 +10,7 @@ import '../../core/notifications/notification_service.dart';
 import '../../core/database/database_provider.dart';
 import '../../core/supabase/auth_supabase_service.dart';
 import '../../core/supabase/sync_service.dart';
+import '../parametres/providers/parametres_provider.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -49,6 +50,12 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         } catch (_) {
           // Erreur réseau au démarrage → on ignore silencieusement
         }
+      }
+
+      // Purge auto des cours annulés selon le délai configuré
+      final delaiPurge = ref.read(purgeAnnulesProvider);
+      if (delaiPurge != null) {
+        await ref.read(coursDaoProvider).purgerCoursAnnulesAnciens(delaiPurge);
       }
     });
   }

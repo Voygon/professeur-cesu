@@ -55,7 +55,11 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
       // Purge auto des cours annulés selon le délai configuré
       final delaiPurge = ref.read(purgeAnnulesProvider);
       if (delaiPurge != null) {
-        await ref.read(coursDaoProvider).purgerCoursAnnulesAnciens(delaiPurge);
+        if (delaiPurge == 0) {
+          await ref.read(coursDaoProvider).purgerTousCoursAnnules();
+        } else {
+          await ref.read(coursDaoProvider).purgerCoursAnnulesAnciens(delaiPurge);
+        }
       }
     });
   }

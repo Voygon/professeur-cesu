@@ -334,6 +334,7 @@ class ParametresScreen extends ConsumerWidget {
 
   String _labelPurge(int? jours) {
     if (jours == null) return 'Jamais — cours annulés conservés';
+    if (jours == 0) return 'Instantané — supprimés immédiatement';
     if (jours == 30) return 'Après 30 jours';
     if (jours == 90) return 'Après 3 mois';
     if (jours == 180) return 'Après 6 mois';
@@ -367,6 +368,7 @@ class ParametresScreen extends ConsumerWidget {
                         setDialogState(() => selectionne = null),
                   ),
                   for (final (jours, label) in [
+                    (0, 'Instantané'),
                     (30, '30 jours'),
                     (90, '3 mois'),
                     (180, '6 mois'),

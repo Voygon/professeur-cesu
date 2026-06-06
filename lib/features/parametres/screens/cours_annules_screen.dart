@@ -4,15 +4,16 @@ import '../../../core/database/database_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 
+final _coursAnnulesListProvider = StreamProvider<List<Cour>>((ref) {
+  return ref.watch(coursDaoProvider).watchCoursAnnules();
+});
+
 class CoursAnnulesScreen extends ConsumerWidget {
   const CoursAnnulesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final coursAsync = ref.watch(
-      StreamProvider<List<Cour>>((ref) =>
-          ref.watch(coursDaoProvider).watchCoursAnnules()),
-    );
+    final coursAsync = ref.watch(_coursAnnulesListProvider);
 
     return Scaffold(
       appBar: AppBar(

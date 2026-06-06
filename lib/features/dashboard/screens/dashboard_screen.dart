@@ -572,7 +572,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     : _construireItemsAvecJours(listeCours);
 
                 return ListView.builder(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).padding.bottom),
+                      padding: EdgeInsets.fromLTRB(16, _mode == _Mode.jour ? 8 : 0, 16, 16 + MediaQuery.of(context).padding.bottom),
                       itemCount: items.length,
                       itemBuilder: (context, index) {
                         final item = items[index];

@@ -191,6 +191,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   // Selecteur de mode
                   SegmentedButton<String>(
                     showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
                     segments: const [
                       ButtonSegment(value: 'semaine', label: Text('Semaine')),
                       ButtonSegment(value: 'mois', label: Text('Mois')),
@@ -467,6 +470,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 SegmentedButton<_Mode>(
                   showSelectedIcon: false,
+                  style: SegmentedButton.styleFrom(
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
                   segments: const [
                     ButtonSegment(value: _Mode.jour, label: Text('Jour')),
                     ButtonSegment(

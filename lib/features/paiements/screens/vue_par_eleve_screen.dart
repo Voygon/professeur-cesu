@@ -347,7 +347,7 @@ class _DetailCours extends ConsumerWidget {
           return const Center(child: Text('Aucun cours pour cette période'));
         }
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
           itemCount: coursList.length,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, i) => _TuileCours(cour: coursList[i]),
@@ -448,7 +448,7 @@ class _DetailCoursTous extends ConsumerWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
       itemCount: coursList.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) => _TuileCours(

@@ -120,8 +120,9 @@ class SyncService {
   }
 
   static Future<void> _uploadCours(AppDatabase db, String userId) async {
-    final cours = await db.select(db.cours).get();
-    for (final c in cours) {
+    final coursList = await db.select(db.cours).get();
+
+    for (final c in coursList) {
       await _client.from('cours').upsert({
         'cours_id': c.coursId,
         'user_id': userId,
@@ -139,6 +140,23 @@ class SyncService {
         'created_at': c.createdAt.toUtc().toIso8601String(),
         'updated_at': c.updatedAt.toUtc().toIso8601String(),
       }, onConflict: 'cours_id,user_id');
+    }
+
+    // Propage les suppressions locales vers Supabase :
+    // tout cours présent dans Supabase mais absent en local a été hard-deleté.
+    final supRows = await _client
+        .from('cours')
+        .select('cours_id')
+        .eq('user_id', userId);
+    final supIds = supRows.map<int>((r) => r['cours_id'] as int).toSet();
+    final localIds = coursList.map((c) => c.coursId).toSet();
+    final aSupprimer = supIds.difference(localIds);
+    for (final id in aSupprimer) {
+      await _client
+          .from('cours')
+          .delete()
+          .eq('cours_id', id)
+          .eq('user_id', userId);
     }
   }
 

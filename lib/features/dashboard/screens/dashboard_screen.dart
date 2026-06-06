@@ -203,14 +203,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                   // Afficher selon le mode
                   if (mode == 'semaine')
-                    Text(
-                      'Semaine du ${_formatDate(getLundiSemaine())} '
-                      'au ${_formatDate(getLundiSemaine().add(const Duration(days: 6)))}', 
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Semaine du ${_formatDate(getLundiSemaine())}'
+                        ' au ${_formatDate(getLundiSemaine().add(const Duration(days: 6)))}',
+                        textAlign: TextAlign.center,
+                      ),
                     )
                   else if (mode == 'mois')
                     Text(
                       'Mois de ${_nomMois(DateTime.now())}',
-                  )
+                      textAlign: TextAlign.center,
+                    )
                   else ...[
                     // Période libre
                     ListTile(
@@ -567,7 +572,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     : _construireItemsAvecJours(listeCours);
 
                 return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).padding.bottom),
                       itemCount: items.length,
                       itemBuilder: (context, index) {
                         final item = items[index];

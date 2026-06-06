@@ -47,7 +47,7 @@ class DetailMoisScreen extends ConsumerWidget {
 
           final elevesIds = parEleve.keys.toList();
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
             itemCount: elevesIds.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, i) {

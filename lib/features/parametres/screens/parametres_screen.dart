@@ -12,6 +12,7 @@ import '../../../core/supabase/auth_supabase_service.dart';
 import '../../../core/supabase/supabase_provider.dart';
 import '../../../core/supabase/sync_service.dart';
 import 'tarifs_screen.dart';
+import 'cours_annules_screen.dart';
 
 class ParametresScreen extends ConsumerWidget {
   const ParametresScreen({super.key});
@@ -20,11 +21,13 @@ class ParametresScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tarifsActifs = ref.watch(tarifsEnCoursProvider).valueOrNull ?? [];
     final espacement = ref.watch(espacementProvider);
+    final nbAnnules = ref.watch(nbCoursAnnulesProvider).valueOrNull ?? 0;
+    final purgeDelai = ref.watch(purgeAnnulesProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
           // ── Tarifs ──
           _sectionTitre(context, 'Tarifs'),
@@ -168,6 +171,43 @@ class ParametresScreen extends ConsumerWidget {
             ),
           ),
 
+          // ── Historique ──
+          const SizedBox(height: 24),
+          _sectionTitre(context, 'Historique'),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cancel_outlined),
+                  title: const Text('Cours annulés'),
+                  subtitle: Text(
+                    nbAnnules == 0
+                        ? 'Aucun cours annulé'
+                        : nbAnnules == 1
+                            ? '1 cours annulé conservé'
+                            : '$nbAnnules cours annulés conservés',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const CoursAnnulesScreen()),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.auto_delete_outlined),
+                  title: const Text('Suppression automatique'),
+                  subtitle: Text(_labelPurge(purgeDelai)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () =>
+                      _choisirPurgeAnnules(context, ref, purgeDelai),
+                ),
+              ],
+            ),
+          ),
+
           // ── À propos ──
           const SizedBox(height: 24),
           _sectionTitre(context, 'À propos'),
@@ -283,6 +323,76 @@ class ParametresScreen extends ConsumerWidget {
                 final navigator = Navigator.of(context);
                 await NotificationService.setRappelMinutes(selectionne);
                 navigator.pop();
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _labelPurge(int? jours) {
+    if (jours == null) return 'Jamais — cours annulés conservés';
+    if (jours == 30) return 'Après 30 jours';
+    if (jours == 90) return 'Après 3 mois';
+    if (jours == 180) return 'Après 6 mois';
+    if (jours == 365) return 'Après 1 an';
+    return 'Après $jours jours';
+  }
+
+  Future<void> _choisirPurgeAnnules(
+      BuildContext context, WidgetRef ref, int? delaiActuel) async {
+    int? selectionne = delaiActuel;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Suppression automatique'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Purger automatiquement les cours annulés après :'),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Jamais'),
+                    selected: selectionne == null,
+                    onSelected: (_) =>
+                        setDialogState(() => selectionne = null),
+                  ),
+                  for (final (jours, label) in [
+                    (30, '30 jours'),
+                    (90, '3 mois'),
+                    (180, '6 mois'),
+                    (365, '1 an'),
+                  ])
+                    ChoiceChip(
+                      label: Text(label),
+                      selected: selectionne == jours,
+                      onSelected: (_) =>
+                          setDialogState(() => selectionne = jours),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                ref
+                    .read(purgeAnnulesProvider.notifier)
+                    .setDelai(selectionne);
+                Navigator.pop(context);
               },
               child: const Text('Enregistrer'),
             ),

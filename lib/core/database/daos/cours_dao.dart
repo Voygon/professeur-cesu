@@ -158,7 +158,9 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
   Future<bool> coursExisteDeja(int eleveId, DateTime datePrevue) async {
     final query = await (select(cours)
           ..where((c) =>
-              c.elevesId.equals(eleveId) & c.datePrevue.equals(datePrevue))
+              c.elevesId.equals(eleveId) &
+              c.datePrevue.equals(datePrevue) &
+              c.statut.isNotValue(StatutCours.annule.toDb()))
           ..limit(1))
         .get();
     return query.isNotEmpty;
@@ -534,6 +536,28 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         mois: debut.month, annee: debut.year,
       );
     });
+  }
+
+  Stream<List<Cour>> watchCoursAnnules() {
+    return (select(cours)
+          ..where((c) => c.statut.equals(StatutCours.annule.toDb()))
+          ..orderBy([(c) => OrderingTerm.desc(c.datePrevue)]))
+        .watch();
+  }
+
+  Future<int> purgerCoursAnnulesAnciens(int jours) {
+    final limite = DateTime.now().subtract(Duration(days: jours));
+    return (delete(cours)
+          ..where((c) =>
+              c.statut.equals(StatutCours.annule.toDb()) &
+              c.datePrevue.isSmallerThanValue(limite)))
+        .go();
+  }
+
+  Future<int> purgerTousCoursAnnules() {
+    return (delete(cours)
+          ..where((c) => c.statut.equals(StatutCours.annule.toDb())))
+        .go();
   }
 
   Future<void> marquerMoisNonPaye(int eleveId, int mois, int annee) async {

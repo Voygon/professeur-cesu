@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../shared/models/enums.dart';
+import '../../../shared/widgets/heure_picker.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../../parametres/providers/tarifs_provider.dart';
 
@@ -181,14 +182,9 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
                 subtitle: Text(
                     '${_heure.hour.toString().padLeft(2, '0')}:${_heure.minute.toString().padLeft(2, '0')}'),
                 onTap: () async {
-                  final p = await showTimePicker(
-                    context: context,
+                  final p = await showHeureScrollPicker(
+                    context,
                     initialTime: _heure,
-                    builder: (context, child) => MediaQuery(
-                      data: MediaQuery.of(context)
-                          .copyWith(alwaysUse24HourFormat: true),
-                      child: child!,
-                    ),
                   );
                   if (p != null) setState(() => _heure = p);
                 },

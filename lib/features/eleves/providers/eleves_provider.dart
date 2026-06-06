@@ -54,6 +54,11 @@ class ElevesService {
   }
 }
 
+final payeurParEleveProvider =
+    FutureProvider.family<Payeur?, int>((ref, eleveId) {
+  return ref.read(payeursDaoProvider).getPayeurByEleve(eleveId);
+});
+
 final eleveAvecPayeurProvider =
     StreamProvider.family<EleveAvecPayeur?, int>((ref, eleveId) async* {
   // Écoute uniquement cet élève — SQLite notifie seulement quand il change

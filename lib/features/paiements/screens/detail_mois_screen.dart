@@ -67,6 +67,14 @@ class DetailMoisScreen extends ConsumerWidget {
                       0, (s, c) => s + (c.paye ? (c.montant ?? 0) : 0));
                   final toutPaye = coursDuEleve.every((c) => c.paye);
 
+                  final montantEspeces = coursDuEleve.fold<double>(
+                      0,
+                      (s, c) => s +
+                          (c.paiementEspeces ? (c.montant ?? 0) : 0));
+                  final montantCesu = total - montantEspeces;
+                  final hasEspeces = montantEspeces > 0;
+                  final hasCesu = montantCesu > 0;
+
                   return Card(
                     child: ListTile(
                       title: Text('${eleve.prenom} ${eleve.nom}'),
@@ -76,6 +84,28 @@ class DetailMoisScreen extends ConsumerWidget {
                           Text(
                             '${coursDuEleve.length} cours · ${total.toStringAsFixed(2)} €',
                           ),
+                          // Détail CESU+ / Espèces
+                          if (hasEspeces || hasCesu) ...[
+                            const SizedBox(height: 2),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                if (hasCesu)
+                                  _PaiementBadge(
+                                    label: 'CESU+ ${montantCesu.toStringAsFixed(2)} €',
+                                    icon: Icons.credit_card_outlined,
+                                    color: Colors.blue,
+                                  ),
+                                if (hasEspeces)
+                                  _PaiementBadge(
+                                    label: 'Espèces ${montantEspeces.toStringAsFixed(2)} €',
+                                    icon: Icons.payments_outlined,
+                                    color: Colors.green,
+                                  ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 2),
                           Text(
                             toutPaye
                                 ? 'Payé ✓'
@@ -111,6 +141,37 @@ class DetailMoisScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _PaiementBadge extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _PaiementBadge({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../parametres/providers/parametres_provider.dart';
 import '../../../core/validators/eleve_validator.dart';
 import '../../../core/validators/payeur_validator.dart';
 import '../../../shared/models/enums.dart';
+import '../../../shared/widgets/heure_picker.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../../parametres/providers/tarifs_provider.dart';
 import '../../../shared/models/eleve_avec_payeur.dart';
@@ -420,17 +421,9 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
           ),
           trailing: const Icon(Icons.access_time),
           onTap: () async {
-            final heure = await showTimePicker(
-              context: context,
+            final heure = await showHeureScrollPicker(
+              context,
               initialTime: _heureDebut ?? const TimeOfDay(hour: 17, minute: 0),
-              builder: (context, child) {
-                // Force le format 24h
-                return MediaQuery(
-                  data: MediaQuery.of(context)
-                      .copyWith(alwaysUse24HourFormat: true),
-                  child: child!,
-                );
-              },
             );
             if (heure != null) setState(() => _heureDebut = heure);
           },

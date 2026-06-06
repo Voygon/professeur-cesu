@@ -68,6 +68,7 @@ class Cours extends Table {
       integer().references(Tarifs, #tarifsId).nullable()();
   RealColumn get montant => real().nullable()();
   BoolColumn get paye => boolean().withDefault(const Constant(false))();
+  BoolColumn get paiementEspeces => boolean().withDefault(const Constant(false))();
   DateTimeColumn get datePaiement => dateTime().nullable()();
   TextColumn get statut => text().withDefault(const Constant('prevu'))();
   BoolColumn get exceptionnel => boolean().withDefault(const Constant(false))();
@@ -83,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,6 +98,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 3) {
             await _createIndexes();
+          }
+          if (from < 4) {
+            await m.addColumn(cours, cours.paiementEspeces);
           }
         },
       );

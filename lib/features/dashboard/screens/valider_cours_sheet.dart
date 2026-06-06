@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../shared/models/enums.dart';
+import '../../../shared/widgets/heure_picker.dart';
+import '../../eleves/providers/eleves_provider.dart';
 import '../../parametres/providers/tarifs_provider.dart';
 
 class ValiderCoursSheet extends ConsumerStatefulWidget {
@@ -27,6 +29,7 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
   bool _chargement = false;
   late DateTime _date;
   late TimeOfDay _heure;
+  late bool _paiementEspeces;
 
   @override
   void initState() {
@@ -42,6 +45,7 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
       hour: widget.cours.datePrevue.hour,
       minute: widget.cours.datePrevue.minute,
     );
+    _paiementEspeces = widget.cours.paiementEspeces;
     _calculerMontant();
   }
 
@@ -71,6 +75,40 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
       return;
     }
 
+    // Avertissement si le payeur n'est pas en CESU+ et que le cours n'est
+    // pas coché "espèces" — situation anormale.
+    if (!_paiementEspeces) {
+      final payeur = await ref
+          .read(payeurParEleveProvider(widget.eleve.elevesId).future);
+      if (payeur != null && !payeur.cesuPlus) {
+        if (!mounted) return;
+        final continuer = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.warning_amber_rounded,
+                color: Colors.orange, size: 32),
+            title: const Text('Paiement en espèces requis'),
+            content: Text(
+              '${payeur.prenom} ${payeur.nom} n\'est pas inscrit en CESU+.\n\n'
+              'Ce cours devrait être réglé en espèces. '
+              'Cochez "Paiement en espèces" ou vérifiez le profil du payeur.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Valider quand même'),
+              ),
+            ],
+          ),
+        );
+        if (continuer != true) return;
+      }
+    }
+
     setState(() => _chargement = true);
     try {
       final nouvelleDatePrevue = _nouvelleDatePrevue;
@@ -90,6 +128,7 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
           montant: _montant!,
           dureeReelle: _duree,
           eleve: widget.eleve,
+          paiementEspeces: _paiementEspeces,
         );
       });
       if (mounted) Navigator.of(context).pop();
@@ -118,8 +157,38 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Annuler la validation ?'),
-        content: const Text(
-            'Le cours repassera en "Prévu" et le montant sera effacé.'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Le cours repassera en "Prévu" et le montant sera effacé.'),
+            if (_paiementEspeces) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded,
+                        color: Colors.orange, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ce cours est marqué "Paiement en espèces". '
+                        'Annuler la validation supprimera aussi ce marquage.',
+                        style: TextStyle(fontSize: 13, color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -270,14 +339,9 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
                 onTap: estAnnule
                     ? null
                     : () async {
-                        final picked = await showTimePicker(
-                          context: context,
+                        final picked = await showHeureScrollPicker(
+                          context,
                           initialTime: _heure,
-                          builder: (context, child) => MediaQuery(
-                            data: MediaQuery.of(context)
-                                .copyWith(alwaysUse24HourFormat: true),
-                            child: child!,
-                          ),
                         );
                         if (picked != null) setState(() => _heure = picked);
                       },
@@ -355,7 +419,7 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
 
                 // ── Boutons ──
                 if (statut == StatutCours.prevu) ...[
@@ -398,6 +462,34 @@ class _ValiderCoursSheetState extends ConsumerState<ValiderCoursSheet> {
                     ),
                   ),
                 ] else ...[
+                  // ── Mode de paiement (cours effectué uniquement) ──
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: Icon(
+                      _paiementEspeces
+                          ? Icons.payments_outlined
+                          : Icons.credit_card_outlined,
+                      color: _paiementEspeces
+                          ? Colors.green
+                          : Theme.of(context).colorScheme.outline,
+                    ),
+                    title: const Text('Paiement en espèces'),
+                    subtitle: Text(
+                      _paiementEspeces
+                          ? 'Réglé en dehors du système CESU+'
+                          : 'Paiement officiel via CESU+',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _paiementEspeces
+                            ? Colors.green
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    value: _paiementEspeces,
+                    onChanged: (v) => setState(() => _paiementEspeces = v),
+                  ),
+                  const SizedBox(height: 12),
+
                   // Effectué / Modifié — enregistrer les corrections
                   SizedBox(
                     width: double.infinity,

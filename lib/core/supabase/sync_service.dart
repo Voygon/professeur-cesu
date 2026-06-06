@@ -133,6 +133,7 @@ class SyncService {
         'tarifs_id': c.tarifsId,
         'montant': c.montant,
         'paye': c.paye,
+        'paiement_especes': c.paiementEspeces,
         'date_paiement': c.datePaiement?.toUtc().toIso8601String(),
         'statut': c.statut,
         'exceptionnel': c.exceptionnel,
@@ -255,6 +256,7 @@ class SyncService {
               ? (row['montant'] as num).toDouble()
               : null),
           paye: Value(row['paye'] as bool),
+          paiementEspeces: Value((row['paiement_especes'] as bool?) ?? false),
           datePaiement: Value(row['date_paiement'] != null
               ? DateTime.parse(row['date_paiement'] as String).toLocal()
               : null),

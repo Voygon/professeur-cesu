@@ -81,6 +81,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     int? dureeReelle,
     int? tarifId,
     required Eleve eleve,
+    bool paiementEspeces = false,
   }) async {
     await (update(cours)..where((c) => c.coursId.equals(coursId))).write(
       CoursCompanion(
@@ -89,6 +90,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         dureeReelle:
             dureeReelle != null ? Value(dureeReelle) : const Value.absent(),
         tarifsId: tarifId != null ? Value(tarifId) : const Value.absent(),
+        paiementEspeces: Value(paiementEspeces),
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -101,6 +103,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         statut: Value(StatutCours.prevu.toDb()),
         montant: const Value(null),
         paye: const Value(false),
+        paiementEspeces: const Value(false),
         datePaiement: const Value(null),
         updatedAt: Value(DateTime.now()),
       ),

@@ -134,7 +134,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
         dureeReelle:
             nouvelleDuree != null ? Value(nouvelleDuree) : const Value.absent(),
         tarifsId: tarifId != null ? Value(tarifId) : const Value.absent(),
-        statut: Value(StatutCours.modifie.toDb()),
+        statut: Value(StatutCours.effectue.toDb()),
         notes: notes != null ? Value(notes) : const Value.absent(),
         updatedAt: Value(DateTime.now()),
       ),
@@ -150,8 +150,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
             final dateEffective =
                 coalesce<DateTime>([c.dateReelle, c.datePrevue]);
             return c.elevesId.equals(eleveId) &
-                (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+                c.statut.equals(StatutCours.effectue.toDb()) &
                 dateEffective.isBiggerOrEqualValue(debutMois) &
                 dateEffective.isSmallerThanValue(finMois);
           }))
@@ -298,8 +297,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
             final dateEffective =
                 coalesce<DateTime>([c.dateReelle, c.datePrevue]);
             return c.elevesId.equals(eleveId) &
-                (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+                c.statut.equals(StatutCours.effectue.toDb()) &
                 dateEffective.isBiggerOrEqualValue(debutMois) &
                 dateEffective.isSmallerThanValue(finMois);
           }))
@@ -313,8 +311,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
   Stream<List<Cour>> watchCoursNonPayes() {
     return (select(cours)
           ..where((c) =>
-              (c.statut.equals(StatutCours.effectue.toDb()) |
-                  c.statut.equals(StatutCours.modifie.toDb())) &
+              c.statut.equals(StatutCours.effectue.toDb()) &
               c.paye.equals(false))
           ..orderBy([
             (c) {
@@ -335,8 +332,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
             final dateEffective =
                 coalesce<DateTime>([c.dateReelle, c.datePrevue]);
             return c.elevesId.equals(eleveId) &
-                (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+                c.statut.equals(StatutCours.effectue.toDb()) &
                 dateEffective.isBiggerOrEqualValue(debutMois) &
                 dateEffective.isSmallerThanValue(finMois) &
                 c.paye.equals(true);
@@ -357,8 +353,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
       ..addColumns(
           [nbCoursExpr, montantTotalExpr, nbPayesExpr, montantPayeExpr])
       ..where(cours.elevesId.equals(eleveId) &
-          (cours.statut.equals(StatutCours.effectue.toDb()) |
-              cours.statut.equals(StatutCours.modifie.toDb())) &
+          cours.statut.equals(StatutCours.effectue.toDb()) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
               .isBiggerOrEqualValue(debutMois) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
@@ -410,9 +405,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
 
   Stream<List<Cour>> watchCoursValides() {
     return (select(cours)
-          ..where((c) =>
-              c.statut.equals(StatutCours.effectue.toDb()) |
-              c.statut.equals(StatutCours.modifie.toDb())))
+          ..where((c) => c.statut.equals(StatutCours.effectue.toDb())))
         .watch();
   }
 
@@ -422,8 +415,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     return (select(cours)
           ..where((c) {
             final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
-            return (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+            return c.statut.equals(StatutCours.effectue.toDb()) &
                 d.isBiggerOrEqualValue(debut) &
                 d.isSmallerThanValue(fin);
           })
@@ -437,8 +429,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           ..where((c) {
             final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
             return c.elevesId.equals(eleveId) &
-                (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+                c.statut.equals(StatutCours.effectue.toDb()) &
                 d.isBiggerOrEqualValue(debut) &
                 d.isSmallerThanValue(fin);
           })
@@ -453,8 +444,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     return (select(cours)
           ..where((c) {
             final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
-            return (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+            return c.statut.equals(StatutCours.effectue.toDb()) &
                 d.isBiggerOrEqualValue(debut) &
                 d.isSmallerThanValue(fin);
           })
@@ -475,8 +465,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     final query = selectOnly(cours)
       ..addColumns([nbExpr, totalExpr, nbPayesExpr, payeExpr])
       ..where(cours.elevesId.equals(eleveId) &
-          (cours.statut.equals(StatutCours.effectue.toDb()) |
-              cours.statut.equals(StatutCours.modifie.toDb())) &
+          cours.statut.equals(StatutCours.effectue.toDb()) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
               .isBiggerOrEqualValue(debut) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
@@ -513,8 +502,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     final query = selectOnly(cours)
       ..addColumns([nbExpr, totalExpr, nbPayesExpr, payeExpr])
       ..where(
-          (cours.statut.equals(StatutCours.effectue.toDb()) |
-              cours.statut.equals(StatutCours.modifie.toDb())) &
+          cours.statut.equals(StatutCours.effectue.toDb()) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
               .isBiggerOrEqualValue(debut) &
           coalesce<DateTime>([cours.dateReelle, cours.datePrevue])
@@ -570,8 +558,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           ..where((c) {
             final d = coalesce<DateTime>([c.dateReelle, c.datePrevue]);
             return c.elevesId.equals(eleveId) &
-                (c.statut.equals(StatutCours.effectue.toDb()) |
-                    c.statut.equals(StatutCours.modifie.toDb())) &
+                c.statut.equals(StatutCours.effectue.toDb()) &
                 d.isBiggerOrEqualValue(debut) &
                 d.isSmallerThanValue(fin);
           }))

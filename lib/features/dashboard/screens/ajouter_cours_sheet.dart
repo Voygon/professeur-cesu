@@ -51,8 +51,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
       return;
     }
 
-    final needsMontant = _statut == StatutCours.effectue ||
-        _statut == StatutCours.modifie;
+    final needsMontant = _statut == StatutCours.effectue;
     if (needsMontant && _montant == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -98,8 +97,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
     final showTextField =
         _modeManuel || (tarifs.isNotEmpty && _duree != null && !tarifCorrespond);
 
-    final needsMontant = _statut == StatutCours.effectue ||
-        _statut == StatutCours.modifie;
+    final needsMontant = _statut == StatutCours.effectue;
 
     return SafeArea(
       child: Padding(
@@ -261,7 +259,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
                 },
               ),
 
-              // ── Montant calculé (si effectué/modifié) ──
+              // ── Montant calculé (si effectué) ──
               if (needsMontant) ...[
                 const SizedBox(height: 16),
                 Text(

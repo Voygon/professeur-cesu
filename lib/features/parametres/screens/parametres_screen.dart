@@ -7,7 +7,6 @@ import '../../../core/database/database_provider.dart';
 import '../../../core/export/export_service.dart';
 import '../../../core/export/backup_service.dart';
 import '../../../core/import/import_screen.dart';
-import '../../../core/notifications/notification_service.dart';
 import '../../../core/supabase/auth_supabase_service.dart';
 import '../../../core/supabase/supabase_provider.dart';
 import '../../../core/supabase/sync_service.dart';
@@ -21,6 +20,7 @@ class ParametresScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tarifsActifs = ref.watch(tarifsEnCoursProvider).valueOrNull ?? [];
     final espacement = ref.watch(espacementProvider);
+    final rappelMinutes = ref.watch(rappelMinutesProvider);
     final nbAnnules = ref.watch(nbCoursAnnulesProvider).valueOrNull ?? 0;
     final purgeDelai = ref.watch(purgeAnnulesProvider);
 
@@ -76,15 +76,9 @@ class ParametresScreen extends ConsumerWidget {
             child: ListTile(
               leading: const Icon(Icons.notifications_outlined),
               title: const Text('Rappel avant les cours'),
-              subtitle: FutureBuilder<int>(
-                future: NotificationService.getRappelMinutes(),
-                builder: (context, snap) {
-                  final minutes = snap.data ?? 30;
-                  return Text('$minutes min avant chaque cours');
-                },
-              ),
+              subtitle: Text('$rappelMinutes min avant chaque cours'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => _choisirRappel(context),
+              onTap: () => _choisirRappel(context, ref, rappelMinutes),
             ),
           ),
 
@@ -293,9 +287,9 @@ class ParametresScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _choisirRappel(BuildContext context) async {
-    int selectionne = await NotificationService.getRappelMinutes();
-    if (!context.mounted) return;
+  Future<void> _choisirRappel(
+      BuildContext context, WidgetRef ref, int valeurActuelle) async {
+    int selectionne = valeurActuelle;
 
     await showDialog<void>(
       context: context,
@@ -320,9 +314,10 @@ class ParametresScreen extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () async {
-                final navigator = Navigator.of(context);
-                await NotificationService.setRappelMinutes(selectionne);
-                navigator.pop();
+                await ref
+                    .read(rappelMinutesProvider.notifier)
+                    .setRappel(selectionne);
+                if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Enregistrer'),
             ),

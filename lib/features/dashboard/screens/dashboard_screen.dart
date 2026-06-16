@@ -660,7 +660,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     }
                                   } else {
                                     // Swipe gauche
-                                    if (statut == StatutCours.effectue || statut == StatutCours.modifie) {
+                                    if (statut == StatutCours.effectue) {
                                       if (cour.paye && context.mounted) {
                                         final confirmer = await showDialog<bool>(
                                           context: context,

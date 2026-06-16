@@ -38,12 +38,12 @@ typedef PeriodeCle = ({int eleveId, DateTime debut, DateTime fin});
 typedef PeriodeSeuleCle = ({DateTime debut, DateTime fin});
 
 final coursParMoisProvider =
-    StreamProvider.family<List<Cour>, MoisCle>((ref, key) {
+    StreamProvider.autoDispose.family<List<Cour>, MoisCle>((ref, key) {
   return ref.watch(coursDaoProvider).watchCoursParMois(key.mois, key.annee);
 });
 
 final coursEleveParMoisProvider =
-    StreamProvider.family<List<Cour>, EleveMoisCle>((ref, key) {
+    StreamProvider.autoDispose.family<List<Cour>, EleveMoisCle>((ref, key) {
   final debut = DateTime(key.annee, key.mois, 1);
   final fin = DateTime(key.annee, key.mois + 1, 1);
   return ref
@@ -52,28 +52,28 @@ final coursEleveParMoisProvider =
 });
 
 final recapPeriodeProvider =
-    StreamProvider.family<RecapMois, PeriodeCle>((ref, key) {
+    StreamProvider.autoDispose.family<RecapMois, PeriodeCle>((ref, key) {
   return ref
       .watch(coursDaoProvider)
       .watchRecapPeriode(key.eleveId, key.debut, key.fin);
 });
 
 final coursParPeriodeProvider =
-    StreamProvider.family<List<Cour>, PeriodeCle>((ref, key) {
+    StreamProvider.autoDispose.family<List<Cour>, PeriodeCle>((ref, key) {
   return ref
       .watch(coursDaoProvider)
       .watchCoursEleveParPeriode(key.eleveId, key.debut, key.fin);
 });
 
 final recapPeriodeTousProvider =
-    StreamProvider.family<RecapMois, PeriodeSeuleCle>((ref, key) {
+    StreamProvider.autoDispose.family<RecapMois, PeriodeSeuleCle>((ref, key) {
   return ref
       .watch(coursDaoProvider)
       .watchRecapPeriodeTous(key.debut, key.fin);
 });
 
 final coursParPeriodeTousProvider =
-    StreamProvider.family<List<Cour>, PeriodeSeuleCle>((ref, key) {
+    StreamProvider.autoDispose.family<List<Cour>, PeriodeSeuleCle>((ref, key) {
   return ref
       .watch(coursDaoProvider)
       .watchCoursParPeriodeTous(key.debut, key.fin);

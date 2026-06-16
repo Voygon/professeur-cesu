@@ -158,6 +158,7 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
                       // Séparateur de jour (mode horaire uniquement)
                       if (item is String) {
                         return Padding(
+                          key: ValueKey('sep_$item'),
                           padding: EdgeInsets.only(
                             top: index == 0 ? 0 : 16,
                             bottom: 6,
@@ -184,6 +185,7 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
                           !isLast && items[index + 1] is String;
 
                       return Padding(
+                        key: ValueKey(eleve.elevesId),
                         padding: EdgeInsets.only(
                           bottom: (isLast || nextIsSeparator) ? 0 : 8,
                         ),

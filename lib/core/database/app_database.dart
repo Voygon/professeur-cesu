@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,6 +107,14 @@ class AppDatabase extends _$AppDatabase {
               "UPDATE cours SET statut = 'effectue' WHERE statut = 'modifie'",
             );
           }
+          if (from < 6) {
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_eleves_actif ON eleves(actif)',
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_payeurs_actif ON payeurs(actif)',
+            );
+          }
         },
       );
 
@@ -122,6 +130,12 @@ class AppDatabase extends _$AppDatabase {
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_cours_paye ON cours(paye)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_eleves_actif ON eleves(actif)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_payeurs_actif ON payeurs(actif)',
     );
   }
 }

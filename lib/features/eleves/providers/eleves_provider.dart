@@ -24,16 +24,16 @@ class ElevesService {
     required ElevesCompanion eleve,
     required PayeursCompanion payeur,
   }) async {
+    final db = _ref.read(databaseProvider);
     final payeursDao = _ref.read(payeursDaoProvider);
     final elevesDao = _ref.read(elevesDaoProvider);
 
-    // Crée d'abord le payeur, récupère son id
-    final payeurId = await payeursDao.insertPayeur(payeur);
-
-    // Crée ensuite l'élève avec le payeurId
-    await elevesDao.insertEleve(
-      eleve.copyWith(payeurId: Value(payeurId)),
-    );
+    await db.transaction(() async {
+      final payeurId = await payeursDao.insertPayeur(payeur);
+      await elevesDao.insertEleve(
+        eleve.copyWith(payeurId: Value(payeurId)),
+      );
+    });
   }
 
   Future<void> modifierEleve({

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
-import '../../dashboard/providers/dashboard_provider.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../providers/paiements_provider.dart';
 import 'detail_cours_eleve_mois_screen.dart';
@@ -179,6 +178,7 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
                       // Séparateur de jour (mode horaire uniquement)
                       if (item is String) {
                         return Padding(
+                          key: ValueKey('sep_$item'),
                           padding: EdgeInsets.only(
                             top: i == 0 ? 0 : 16,
                             bottom: 6,
@@ -198,110 +198,104 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
 
                       final eleveId = item as int;
                       final coursDuEleve = parEleve[eleveId]!;
-                      final eleveAsync = ref.watch(eleveParIdProvider(eleveId));
+                      final eleve = elevesMap[eleveId];
                       final isLast = i == items.length - 1;
                       final nextIsSeparator = !isLast && items[i + 1] is String;
 
+                      if (eleve == null) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final total = coursDuEleve.fold<double>(
+                          0, (s, c) => s + (c.montant ?? 0));
+                      final paye = coursDuEleve.fold<double>(
+                          0, (s, c) => s + (c.paye ? (c.montant ?? 0) : 0));
+                      final toutPaye = coursDuEleve.every((c) => c.paye);
+                      final montantEspeces = coursDuEleve.fold<double>(
+                          0,
+                          (s, c) =>
+                              s + (c.paiementEspeces ? (c.montant ?? 0) : 0));
+                      final montantCesu = total - montantEspeces;
+                      final hasEspeces = montantEspeces > 0;
+                      final hasCesu = montantCesu > 0;
+
                       return Padding(
+                        key: ValueKey(eleveId),
                         padding: EdgeInsets.only(
                           bottom: (isLast || nextIsSeparator) ? 0 : 8,
                         ),
-                        child: eleveAsync.when(
-                          loading: () => const SizedBox(height: 72),
-                          error: (_, __) => const SizedBox(),
-                          data: (eleve) {
-                            if (eleve == null) return const SizedBox();
-                            final total = coursDuEleve.fold<double>(
-                                0, (s, c) => s + (c.montant ?? 0));
-                            final paye = coursDuEleve.fold<double>(0,
-                                (s, c) => s + (c.paye ? (c.montant ?? 0) : 0));
-                            final toutPaye = coursDuEleve.every((c) => c.paye);
-
-                            final montantEspeces = coursDuEleve.fold<double>(
-                                0,
-                                (s, c) => s +
-                                    (c.paiementEspeces ? (c.montant ?? 0) : 0));
-                            final montantCesu = total - montantEspeces;
-                            final hasEspeces = montantEspeces > 0;
-                            final hasCesu = montantCesu > 0;
-
-                            return Card(
-                              child: ListTile(
-                                title: Text('${eleve.prenom} ${eleve.nom}'),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${coursDuEleve.length} cours · ${total.toStringAsFixed(2)} €',
-                                    ),
-                                    if (hasEspeces || hasCesu) ...[
-                                      const SizedBox(height: 2),
-                                      Wrap(
-                                        spacing: 8,
-                                        children: [
-                                          if (hasCesu)
-                                            _PaiementBadge(
-                                              label:
-                                                  'CESU+ ${montantCesu.toStringAsFixed(2)} €',
-                                              icon: Icons.credit_card_outlined,
-                                              color: Colors.blue,
-                                            ),
-                                          if (hasEspeces)
-                                            _PaiementBadge(
-                                              label:
-                                                  'Espèces ${montantEspeces.toStringAsFixed(2)} €',
-                                              icon: Icons.payments_outlined,
-                                              color: Colors.green,
-                                            ),
-                                        ],
-                                      ),
+                        child: Card(
+                          child: ListTile(
+                            title: Text('${eleve.prenom} ${eleve.nom}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${coursDuEleve.length} cours · ${total.toStringAsFixed(2)} €',
+                                ),
+                                if (hasEspeces || hasCesu) ...[
+                                  const SizedBox(height: 2),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      if (hasCesu)
+                                        _PaiementBadge(
+                                          label:
+                                              'CESU+ ${montantCesu.toStringAsFixed(2)} €',
+                                          icon: Icons.credit_card_outlined,
+                                          color: Colors.blue,
+                                        ),
+                                      if (hasEspeces)
+                                        _PaiementBadge(
+                                          label:
+                                              'Espèces ${montantEspeces.toStringAsFixed(2)} €',
+                                          icon: Icons.payments_outlined,
+                                          color: Colors.green,
+                                        ),
                                     ],
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      toutPaye
-                                          ? 'Payé ✓'
-                                          : 'Restant : ${(total - paye).toStringAsFixed(2)} €',
-                                      style: TextStyle(
-                                        color: toutPaye
-                                            ? Colors.green
-                                            : Theme.of(context)
-                                                .colorScheme
-                                                .error,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                trailing: Switch(
-                                  value: toutPaye,
-                                  onChanged: (v) async {
-                                    if (v) {
-                                      await ref
-                                          .read(coursDaoProvider)
-                                          .marquerMoisPaye(eleveId, widget.mois,
-                                              widget.annee);
-                                    } else {
-                                      await ref
-                                          .read(coursDaoProvider)
-                                          .marquerMoisNonPaye(eleveId,
-                                              widget.mois, widget.annee);
-                                    }
-                                  },
-                                ),
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => DetailCoursEleveMoisScreen(
-                                      eleveId: eleveId,
-                                      eleveName:
-                                          '${eleve.prenom} ${eleve.nom}',
-                                      mois: widget.mois,
-                                      annee: widget.annee,
-                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  toutPaye
+                                      ? 'Payé ✓'
+                                      : 'Restant : ${(total - paye).toStringAsFixed(2)} €',
+                                  style: TextStyle(
+                                    color: toutPaye
+                                        ? Colors.green
+                                        : Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                              ],
+                            ),
+                            trailing: Switch(
+                              value: toutPaye,
+                              onChanged: (v) async {
+                                if (v) {
+                                  await ref
+                                      .read(coursDaoProvider)
+                                      .marquerMoisPaye(
+                                          eleveId, widget.mois, widget.annee);
+                                } else {
+                                  await ref
+                                      .read(coursDaoProvider)
+                                      .marquerMoisNonPaye(
+                                          eleveId, widget.mois, widget.annee);
+                                }
+                              },
+                            ),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => DetailCoursEleveMoisScreen(
+                                  eleveId: eleveId,
+                                  eleveName: '${eleve.prenom} ${eleve.nom}',
+                                  mois: widget.mois,
+                                  annee: widget.annee,
+                                ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       );
                     },

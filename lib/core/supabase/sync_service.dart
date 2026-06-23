@@ -12,6 +12,7 @@ class SyncService {
 
   static final _client = Supabase.instance.client;
   static const _cleDernierSync = 'derniere_sync';
+  static const _cleRestaurationProposee = 'restauration_cloud_proposee';
 
   // ── Dernière sync ─────────────────────────────────────────────────────────
 
@@ -27,6 +28,19 @@ class SyncService {
     await prefs.setString(_cleDernierSync, date.toIso8601String());
   }
 
+  // ── Restauration au premier lancement ────────────────────────────────────
+  // (proposée une seule fois par installation, indépendamment de la réponse)
+
+  static Future<bool> restaurationDejaProposee() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_cleRestaurationProposee) ?? false;
+  }
+
+  static Future<void> marquerRestaurationProposee() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_cleRestaurationProposee, true);
+  }
+
   // ── Sync complète ─────────────────────────────────────────────────────────
 
   static Future<void> synchroniser(
@@ -37,11 +51,15 @@ class SyncService {
     if (!AuthSupabaseService.isConnected) return;
     final userId = AuthSupabaseService.userId!;
     final maintenant = DateTime.now();
+    // Aucune sync enregistrée sur cet appareil (install fraîche ou première
+    // connexion) → la base locale n'est pas une référence fiable pour
+    // détecter des suppressions, on se contente de fusionner sans supprimer.
+    final premierSync = await getDerniereSync() == null;
 
     await _uploadTarifs(db, userId);
     await _uploadPayeurs(payeursDao, userId);
     await _uploadEleves(elevesDao, userId);
-    await _uploadCours(db, userId);
+    await _uploadCours(db, userId, propagerSuppressions: !premierSync);
 
     await _downloadTarifs(db, userId);
     await _downloadPayeurs(db, userId);
@@ -119,7 +137,11 @@ class SyncService {
     }
   }
 
-  static Future<void> _uploadCours(AppDatabase db, String userId) async {
+  static Future<void> _uploadCours(
+    AppDatabase db,
+    String userId, {
+    required bool propagerSuppressions,
+  }) async {
     final coursList = await db.select(db.cours).get();
 
     for (final c in coursList) {
@@ -143,8 +165,13 @@ class SyncService {
       }, onConflict: 'cours_id,user_id');
     }
 
+    if (!propagerSuppressions) return;
+
     // Propage les suppressions locales vers Supabase :
     // tout cours présent dans Supabase mais absent en local a été hard-deleté.
+    // Ne s'applique que si la base locale est déjà une référence fiable
+    // (au moins une sync précédente), sinon une base locale vide effacerait
+    // tout le cloud.
     final supRows = await _client
         .from('cours')
         .select('cours_id')

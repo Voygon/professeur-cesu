@@ -39,8 +39,20 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await NotificationService.checkLaunchNotification();
 
-      // Sync silencieuse au démarrage si l'utilisateur est connecté à Supabase
+      // Sync au démarrage si l'utilisateur est connecté à Supabase
       if (AuthSupabaseService.isConnected) {
+        final dejaProposee = await SyncService.restaurationDejaProposee();
+        final premiereSync = await SyncService.getDerniereSync() == null;
+
+        // Premier lancement avec un compte connecté → propose de récupérer
+        // les données existantes dans le cloud avant toute autre opération.
+        if (!dejaProposee && premiereSync) {
+          await SyncService.marquerRestaurationProposee();
+          if (!mounted) return;
+          final restaurer = await _demanderRestaurationCloud();
+          if (restaurer != true) return;
+        }
+
         try {
           await SyncService.synchroniser(
             ref.read(databaseProvider),
@@ -69,6 +81,33 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     _tapSub?.cancel();
     _validerSub?.cancel();
     super.dispose();
+  }
+
+  // Premier lancement avec un compte Supabase connecté : demande si les
+  // données déjà présentes en ligne doivent être récupérées en local.
+  Future<bool?> _demanderRestaurationCloud() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Récupérer les données ?'),
+        content: const Text(
+          'Un compte connecté à la synchronisation a été détecté. '
+          'Voulez-vous récupérer les données déjà enregistrées en ligne '
+          'et les enregistrer sur cet appareil ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Plus tard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Récupérer'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Tap sur le corps de la notification → ouvre la fiche du cours

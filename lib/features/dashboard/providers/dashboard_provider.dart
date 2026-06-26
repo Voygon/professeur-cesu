@@ -79,7 +79,3 @@ final coursPeriodeProvider =
       .watch(coursDaoProvider)
       .watchCoursPeriode(key.debut, key.fin);
 });
-
-final eleveParIdProvider = FutureProvider.family<Eleve?, int>((ref, id) {
-  return ref.read(elevesDaoProvider).getEleve(id);
-});

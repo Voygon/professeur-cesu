@@ -20,7 +20,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   DateTime? _heureArrierePlan;
 
   // Durée avant de re-demander l'auth après mise en arrière-plan
-  static const _delaiVerrouillage = Duration(minutes: 5);
+  static const _delaiVerrouillage = Duration(minutes: 15);
 
   Future<void> verifier() async {
     // Vérifie si l'appareil a un mécanisme d'auth (biométrie, PIN, schéma)

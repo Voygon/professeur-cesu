@@ -1,8 +1,9 @@
 class MoisInfo {
   final DateTime mois;
   final int nbCours;
-  final double montantTotal;
-  final double montantPaye;
+  // Montants en centimes.
+  final int montantTotal;
+  final int montantPaye;
 
   const MoisInfo({
     required this.mois,
@@ -12,5 +13,5 @@ class MoisInfo {
   });
 
   bool get toutPaye => nbCours > 0 && montantPaye >= montantTotal;
-  double get montantRestant => montantTotal - montantPaye;
+  int get montantRestant => montantTotal - montantPaye;
 }

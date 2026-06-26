@@ -4,6 +4,8 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../providers/paiements_provider.dart';
+import '../../../shared/utils/money.dart';
+import '../../../shared/utils/tri_horaire_hebdo.dart';
 import 'detail_cours_eleve_mois_screen.dart';
 
 String _nomMoisCapitalize(int mois, int annee) {
@@ -33,67 +35,39 @@ class DetailMoisScreen extends ConsumerStatefulWidget {
 class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
   _TriDetailMois _tri = _TriDetailMois.alphabetique;
 
-  static const _jours = [
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche',
-  ];
-
-  int _heureEnMinutes(String? h) {
-    if (h == null) return 9999;
-    final p = h.split(':');
-    if (p.length != 2) return 9999;
-    return (int.tryParse(p[0]) ?? 0) * 60 + (int.tryParse(p[1]) ?? 0);
-  }
-
   // Trie les eleveIds par jour hebdo puis heure de début
   List<int> _trierParHoraire(List<int> ids, Map<int, Eleve> elevesMap) {
-    final copie = [...ids];
-    copie.sort((a, b) {
-      final ea = elevesMap[a];
-      final eb = elevesMap[b];
-      final aHebdo = ea != null && ea.hebdo && ea.jourSemaine != null;
-      final bHebdo = eb != null && eb.hebdo && eb.jourSemaine != null;
-      if (!aHebdo && !bHebdo) {
+    return trierParJourHebdo(
+      ids,
+      aCreneauHebdo: (id) {
+        final e = elevesMap[id];
+        return e != null && e.hebdo && e.jourSemaine != null;
+      },
+      jourSemaine: (id) => elevesMap[id]!.jourSemaine!,
+      heureDebut: (id) => elevesMap[id]?.heureDebut,
+      compareSansCreneau: (a, b) {
+        final ea = elevesMap[a];
+        final eb = elevesMap[b];
         if (ea == null && eb == null) return 0;
         if (ea == null) return 1;
         if (eb == null) return -1;
         final cmp = ea.prenom.compareTo(eb.prenom);
         return cmp != 0 ? cmp : ea.nom.compareTo(eb.nom);
-      }
-      if (!aHebdo) return 1;
-      if (!bHebdo) return -1;
-      final jourCmp = ea.jourSemaine!.compareTo(eb.jourSemaine!);
-      if (jourCmp != 0) return jourCmp;
-      return _heureEnMinutes(ea.heureDebut)
-          .compareTo(_heureEnMinutes(eb.heureDebut));
-    });
-    return copie;
+      },
+    );
   }
 
   // Retourne une liste plate : String = séparateur de jour, int = eleveId
   List<Object> _buildItemsParJourHebdo(
       List<int> elevesIds, Map<int, Eleve> elevesMap) {
-    final items = <Object>[];
-    int? currentJour;
-    bool sansCreneau = false;
-
-    for (final eleveId in elevesIds) {
-      final eleve = elevesMap[eleveId];
-      final hasHebdo = eleve != null && eleve.hebdo && eleve.jourSemaine != null;
-
-      if (hasHebdo) {
-        if (eleve.jourSemaine != currentJour) {
-          currentJour = eleve.jourSemaine;
-          items.add(_jours[eleve.jourSemaine! - 1]);
-        }
-      } else {
-        if (!sansCreneau) {
-          sansCreneau = true;
-          items.add('Sans créneau fixe');
-        }
-      }
-      items.add(eleveId);
-    }
-    return items;
+    return avecSeparateursJour(
+      elevesIds,
+      aCreneauHebdo: (id) {
+        final e = elevesMap[id];
+        return e != null && e.hebdo && e.jourSemaine != null;
+      },
+      jourSemaine: (id) => elevesMap[id]!.jourSemaine!,
+    );
   }
 
   @override
@@ -206,12 +180,12 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
                         return const SizedBox.shrink();
                       }
 
-                      final total = coursDuEleve.fold<double>(
+                      final total = coursDuEleve.fold<int>(
                           0, (s, c) => s + (c.montant ?? 0));
-                      final paye = coursDuEleve.fold<double>(
+                      final paye = coursDuEleve.fold<int>(
                           0, (s, c) => s + (c.paye ? (c.montant ?? 0) : 0));
                       final toutPaye = coursDuEleve.every((c) => c.paye);
-                      final montantEspeces = coursDuEleve.fold<double>(
+                      final montantEspeces = coursDuEleve.fold<int>(
                           0,
                           (s, c) =>
                               s + (c.paiementEspeces ? (c.montant ?? 0) : 0));
@@ -231,7 +205,7 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${coursDuEleve.length} cours · ${total.toStringAsFixed(2)} €',
+                                  '${coursDuEleve.length} cours · ${formatCentimes(total)} €',
                                 ),
                                 if (hasEspeces || hasCesu) ...[
                                   const SizedBox(height: 2),
@@ -241,14 +215,14 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
                                       if (hasCesu)
                                         _PaiementBadge(
                                           label:
-                                              'CESU+ ${montantCesu.toStringAsFixed(2)} €',
+                                              'CESU+ ${formatCentimes(montantCesu)} €',
                                           icon: Icons.credit_card_outlined,
                                           color: Colors.blue,
                                         ),
                                       if (hasEspeces)
                                         _PaiementBadge(
                                           label:
-                                              'Espèces ${montantEspeces.toStringAsFixed(2)} €',
+                                              'Espèces ${formatCentimes(montantEspeces)} €',
                                           icon: Icons.payments_outlined,
                                           color: Colors.green,
                                         ),
@@ -259,7 +233,7 @@ class _DetailMoisScreenState extends ConsumerState<DetailMoisScreen> {
                                 Text(
                                   toutPaye
                                       ? 'Payé ✓'
-                                      : 'Restant : ${(total - paye).toStringAsFixed(2)} €',
+                                      : 'Restant : ${formatCentimes(total - paye)} €',
                                   style: TextStyle(
                                     color: toutPaye
                                         ? Colors.green

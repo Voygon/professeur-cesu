@@ -7,6 +7,7 @@ import '../database/app_database.dart';
 import '../database/daos/eleves_dao.dart';
 import '../database/daos/payeurs_dao.dart';
 import '../security/encryption_service.dart';
+import '../../shared/utils/money.dart';
 
 class BackupService {
   BackupService._();
@@ -35,7 +36,7 @@ class BackupService {
       buf.writeln([
         t.tarifsId,
         t.duree,
-        t.prix,
+        centimesToEuros(t.prix),
         t.dateDebut.toIso8601String(),
         t.dateFin?.toIso8601String() ?? '',
       ].join(','));
@@ -98,7 +99,7 @@ class BackupService {
         c.dateReelle?.toIso8601String() ?? '',
         c.dureeReelle ?? '',
         c.tarifsId ?? '',
-        c.montant?.toStringAsFixed(4) ?? '',
+        c.montant != null ? centimesToEuros(c.montant!).toStringAsFixed(2) : '',
         c.paye,
         c.datePaiement?.toIso8601String() ?? '',
         c.statut,
@@ -198,7 +199,7 @@ class BackupService {
         await db.into(db.tarifs).insert(TarifsCompanion(
               tarifsId: Value(t.id),
               duree: Value(t.duree),
-              prix: Value(t.prix),
+              prix: Value(eurosToCentimes(t.prix)),
               dateDebut: Value(t.dateDebut),
               dateFin:
                   t.dateFin != null ? Value(t.dateFin) : const Value(null),
@@ -255,7 +256,9 @@ class BackupService {
                   : const Value(null),
               tarifsId:
                   c.tarifsId != null ? Value(c.tarifsId) : const Value(null),
-              montant: c.montant != null ? Value(c.montant) : const Value(null),
+              montant: c.montant != null
+                  ? Value(eurosToCentimes(c.montant!))
+                  : const Value(null),
               paye: Value(c.paye),
               datePaiement: c.datePaiement != null
                   ? Value(c.datePaiement)

@@ -6,6 +6,7 @@ import 'ajouter_eleve_sheet.dart';
 import '../../../shared/models/enums.dart';
 import '../../../core/validators/conflit_horaire.dart';
 import '../../parametres/providers/parametres_provider.dart';
+import '../../../shared/utils/tri_horaire_hebdo.dart';
 import 'fiche_eleve_screen.dart';
 
 enum _TriEleves { prenom, horaire }
@@ -21,61 +22,33 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
   bool _afficherArchives = false;
   _TriEleves _tri = _TriEleves.prenom;
 
+  static bool _aCreneauHebdo(Eleve e) => e.hebdo && e.jourSemaine != null;
+
   List<Eleve> _trierEleves(List<Eleve> source) {
-    final copie = [...source];
     switch (_tri) {
       case _TriEleves.prenom:
+        final copie = [...source];
         copie.sort((a, b) => a.prenom.compareTo(b.prenom));
+        return copie;
       case _TriEleves.horaire:
-        copie.sort((a, b) {
-          final aHebdo = a.hebdo && a.jourSemaine != null;
-          final bHebdo = b.hebdo && b.jourSemaine != null;
-          // Élèves sans créneau hebdo à la fin, triés par prénom entre eux
-          if (!aHebdo && !bHebdo) return a.prenom.compareTo(b.prenom);
-          if (!aHebdo) return 1;
-          if (!bHebdo) return -1;
-          // Les deux hebdo : tri par jour puis par heure
-          final jourCmp = a.jourSemaine!.compareTo(b.jourSemaine!);
-          if (jourCmp != 0) return jourCmp;
-          return _heureEnMinutes(a.heureDebut)
-              .compareTo(_heureEnMinutes(b.heureDebut));
-        });
+        return trierParJourHebdo(
+          source,
+          aCreneauHebdo: _aCreneauHebdo,
+          jourSemaine: (e) => e.jourSemaine!,
+          heureDebut: (e) => e.heureDebut,
+          compareSansCreneau: (a, b) => a.prenom.compareTo(b.prenom),
+        );
     }
-    return copie;
-  }
-
-  int _heureEnMinutes(String? h) {
-    if (h == null) return 9999;
-    final p = h.split(':');
-    if (p.length != 2) return 9999;
-    return (int.tryParse(p[0]) ?? 0) * 60 + (int.tryParse(p[1]) ?? 0);
   }
 
   // Retourne une liste plate : String = séparateur de jour, Eleve = carte.
   // Uniquement utilisé en mode horaire.
   List<Object> _buildListItems(List<Eleve> eleves) {
-    final items = <Object>[];
-    int? currentJour;
-    bool sansCreneau = false;
-
-    for (final eleve in eleves) {
-      final hasHebdo = eleve.hebdo && eleve.jourSemaine != null;
-      if (hasHebdo) {
-        if (eleve.jourSemaine != currentJour) {
-          currentJour = eleve.jourSemaine;
-          final j = JourSemaine.fromValeur(eleve.jourSemaine!);
-          items.add(
-              '${j.name[0].toUpperCase()}${j.name.substring(1)}');
-        }
-      } else {
-        if (!sansCreneau) {
-          sansCreneau = true;
-          items.add('Sans créneau fixe');
-        }
-      }
-      items.add(eleve);
-    }
-    return items;
+    return avecSeparateursJour(
+      eleves,
+      aCreneauHebdo: _aCreneauHebdo,
+      jourSemaine: (e) => e.jourSemaine!,
+    );
   }
 
   @override

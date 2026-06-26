@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/paiements_provider.dart';
-import '../models/mois_info.dart';
+import '../../../shared/models/mois_info.dart';
+import '../../../shared/utils/money.dart';
 import 'detail_mois_screen.dart';
 import 'vue_par_eleve_screen.dart';
 
@@ -99,10 +100,10 @@ class _MoisTile extends StatelessWidget {
         title: Text(_nomMois(info.mois)),
         subtitle: info.toutPaye
             ? Text(
-                '${info.nbCours} cours · ${info.montantTotal.toStringAsFixed(2)} € · Payé',
+                '${info.nbCours} cours · ${formatCentimes(info.montantTotal)} € · Payé',
               )
             : Text(
-                '${info.nbCours} cours · ${info.montantRestant.toStringAsFixed(2)} € restant',
+                '${info.nbCours} cours · ${formatCentimes(info.montantRestant)} € restant',
               ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(

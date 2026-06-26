@@ -7,6 +7,7 @@ import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/heure_picker.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../../parametres/providers/tarifs_provider.dart';
+import '../../../shared/utils/money.dart';
 
 class AjouterCoursSheet extends ConsumerStatefulWidget {
   const AjouterCoursSheet({super.key});
@@ -24,7 +25,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
   bool _modeManuel = false;
   final _dureeManuelleCtrl = TextEditingController();
   StatutCours _statut = StatutCours.prevu;
-  double? _montant;
+  int? _montant;
   bool _chargement = false;
 
   @override
@@ -82,6 +83,17 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
             eleve: _eleve!,
           );
       if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        final dejaExistant = e.toString().contains('UNIQUE constraint');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(dejaExistant
+                ? 'Un cours existe déjà pour cet élève à ce créneau'
+                : 'Erreur lors de l\'enregistrement'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _chargement = false);
     }
@@ -200,7 +212,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
                   ...tarifs.map((t) => DropdownMenuItem<int?>(
                         value: t.duree,
                         child: Text(
-                            '${t.duree} min — ${t.prix.toStringAsFixed(2)} €'),
+                            '${t.duree} min — ${formatCentimes(t.prix)} €'),
                       )),
                   const DropdownMenuItem<int?>(
                     value: null,
@@ -264,7 +276,7 @@ class _AjouterCoursSheetState extends ConsumerState<AjouterCoursSheet> {
                 const SizedBox(height: 16),
                 Text(
                   _montant != null
-                      ? 'Montant : ${_montant!.toStringAsFixed(2)} €'
+                      ? 'Montant : ${formatCentimes(_montant!)} €'
                       : 'Aucun tarif défini',
                   style:
                       Theme.of(context).textTheme.titleMedium?.copyWith(

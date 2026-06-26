@@ -9,6 +9,7 @@ import '../../../core/database/database_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/validators/conflit_horaire.dart';
 import '../../parametres/providers/parametres_provider.dart';
+import '../../eleves/providers/eleves_provider.dart';
 
 enum _Mode { jour, semaine, mois, plage }
 
@@ -588,15 +589,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         }
 
                         final cour = item as Cour;
-                        final eleveAsync = ref
-                            .watch(eleveParIdProvider(cour.elevesId));
-                        return eleveAsync.when(
-                          loading: () =>
-                              const SizedBox(height: 80),
-                          error: (_, __) => const SizedBox(),
-                          data: (eleve) => eleve == null
-                              ? const SizedBox()
-                              : Padding(
+                        final eleve = ref.watch(elevesMapProvider)[cour.elevesId];
+                        if (eleve == null) return const SizedBox();
+                        return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Dismissible(
                                 key: ValueKey(cour.coursId),
@@ -723,8 +718,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ),
                                 ),
                               ),
-                            ),
-                        );
+                            );
                       },
                     );
               },

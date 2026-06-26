@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../providers/paiements_provider.dart';
+import '../../../shared/utils/money.dart';
 
 String _nomMois(DateTime date) {
   const noms = [
@@ -209,7 +210,7 @@ class _SectionHeader extends StatelessWidget {
   final String label;
   final Color color;
   final int nb;
-  final double montant;
+  final int montant;
 
   const _SectionHeader({
     required this.icon,
@@ -237,7 +238,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '$nb cours · ${montant.toStringAsFixed(2)} €',
+            '$nb cours · ${formatCentimes(montant)} €',
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -258,8 +259,8 @@ class _RecapGroupe extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total =
-        cours.fold<double>(0, (s, c) => s + (c.montant ?? 0));
-    final paye = cours.fold<double>(
+        cours.fold<int>(0, (s, c) => s + (c.montant ?? 0));
+    final paye = cours.fold<int>(
         0, (s, c) => s + (c.paye ? (c.montant ?? 0) : 0));
     final nbPaye = cours.where((c) => c.paye).length;
     final restant = total - paye;
@@ -306,16 +307,16 @@ class _RecapGroupe extends StatelessWidget {
             ),
             _LigneRecap(
               label: 'Montant total',
-              valeur: '${total.toStringAsFixed(2)} €',
+              valeur: '${formatCentimes(total)} €',
             ),
             _LigneRecap(
               label: 'Montant payé',
-              valeur: '${paye.toStringAsFixed(2)} €',
+              valeur: '${formatCentimes(paye)} €',
               couleur: Colors.green,
             ),
             _LigneRecap(
               label: 'Restant dû',
-              valeur: '${restant.toStringAsFixed(2)} €',
+              valeur: '${formatCentimes(restant)} €',
               couleur: restant > 0
                   ? Theme.of(context).colorScheme.error
                   : null,
@@ -543,9 +544,9 @@ class _ListeAvecSections extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cesuTotal =
-        cesu.fold<double>(0, (s, c) => s + (c.montant ?? 0));
+        cesu.fold<int>(0, (s, c) => s + (c.montant ?? 0));
     final especesTotal =
-        especes.fold<double>(0, (s, c) => s + (c.montant ?? 0));
+        especes.fold<int>(0, (s, c) => s + (c.montant ?? 0));
 
     // Construire la liste à plat : headers + items
     final items = <_ListItem>[];
@@ -619,7 +620,7 @@ class _ListItem {
   final String? label;
   final Color? color;
   final int? nb;
-  final double? montant;
+  final int? montant;
 
   const _ListItem._({
     required this.isHeader,
@@ -637,7 +638,7 @@ class _ListItem {
     required String label,
     required Color color,
     required int nb,
-    required double montant,
+    required int montant,
   }) =>
       _ListItem._(
         isHeader: true,
@@ -689,7 +690,7 @@ class _TuileCours extends ConsumerWidget {
               [
                 if (cour.dureeReelle != null) '${cour.dureeReelle} min',
                 if (cour.montant != null)
-                  '${cour.montant!.toStringAsFixed(2)} €',
+                  '${formatCentimes(cour.montant!)} €',
               ].join(' · '),
             ),
             const SizedBox(width: 6),

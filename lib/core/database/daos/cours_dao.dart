@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import '../../../shared/models/recap_mois.dart';
+import '../../../shared/models/mois_info.dart';
 import '../../../shared/models/enums.dart';
 import '../../notifications/notification_service.dart';
 import '../app_database.dart';
@@ -77,7 +78,7 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
 
   Future<void> validerCours(
     int coursId, {
-    required double montant,
+    required int montant,
     int? dureeReelle,
     int? tarifId,
     required Eleve eleve,
@@ -365,16 +366,16 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
       return RecapMois(
         nbCoursValides: 0,
         nbCoursPayes: 0,
-        montantTotal: 0.0,
-        montantPaye: 0.0,
-        montantRestant: 0.0,
+        montantTotal: 0,
+        montantPaye: 0,
+        montantRestant: 0,
         mois: mois,
         annee: annee,
       );
     }
 
-    final montantTotal = result.read(montantTotalExpr) ?? 0.0;
-    final montantPaye = result.read(montantPayeExpr) ?? 0.0;
+    final montantTotal = result.read(montantTotalExpr) ?? 0;
+    final montantPaye = result.read(montantPayeExpr) ?? 0;
 
     return RecapMois(
       nbCoursValides: result.read(nbCoursExpr) ?? 0,
@@ -407,6 +408,36 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
     return (select(cours)
           ..where((c) => c.statut.equals(StatutCours.effectue.toDb())))
         .watch();
+  }
+
+  // Récap par mois agrégé en SQL (GROUP BY) plutôt que de charger tout
+  // l'historique des cours en mémoire pour le regrouper côté Dart.
+  Stream<List<MoisInfo>> watchMoisAvecCours() {
+    final dateExpr = coalesce<DateTime>([cours.dateReelle, cours.datePrevue]);
+    final anneeExpr = dateExpr.year;
+    final moisExpr = dateExpr.month;
+    final nbExpr = cours.coursId.count();
+    final totalExpr = cours.montant.sum();
+    final payeExpr = cours.montant.sum(filter: cours.paye.equals(true));
+
+    final query = selectOnly(cours)
+      ..addColumns([anneeExpr, moisExpr, nbExpr, totalExpr, payeExpr])
+      ..where(cours.statut.equals(StatutCours.effectue.toDb()))
+      ..groupBy([anneeExpr, moisExpr]);
+
+    return query.watch().map((rows) {
+      return rows.map((r) {
+        final annee = r.read(anneeExpr)!;
+        final mois = r.read(moisExpr)!;
+        return MoisInfo(
+          mois: DateTime(annee, mois, 1),
+          nbCours: r.read(nbExpr) ?? 0,
+          montantTotal: r.read(totalExpr) ?? 0,
+          montantPaye: r.read(payeExpr) ?? 0,
+        );
+      }).toList()
+        ..sort((a, b) => b.mois.compareTo(a.mois));
+    });
   }
 
   Stream<List<Cour>> watchCoursParMois(int mois, int annee) {
@@ -479,8 +510,8 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           mois: debut.month, annee: debut.year,
         );
       }
-      final total = r.read(totalExpr) ?? 0.0;
-      final paye = r.read(payeExpr) ?? 0.0;
+      final total = r.read(totalExpr) ?? 0;
+      final paye = r.read(payeExpr) ?? 0;
       return RecapMois(
         nbCoursValides: r.read(nbExpr) ?? 0,
         nbCoursPayes: r.read(nbPayesExpr) ?? 0,
@@ -516,8 +547,8 @@ class CoursDao extends DatabaseAccessor<AppDatabase> with _$CoursDaoMixin {
           mois: debut.month, annee: debut.year,
         );
       }
-      final total = r.read(totalExpr) ?? 0.0;
-      final paye  = r.read(payeExpr)  ?? 0.0;
+      final total = r.read(totalExpr) ?? 0;
+      final paye  = r.read(payeExpr)  ?? 0;
       return RecapMois(
         nbCoursValides: r.read(nbExpr)      ?? 0,
         nbCoursPayes:   r.read(nbPayesExpr) ?? 0,

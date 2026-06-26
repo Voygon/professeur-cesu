@@ -12,6 +12,16 @@ final elevesArchivesProvider = StreamProvider<List<Eleve>>((ref) {
   return ref.watch(elevesDaoProvider).watchElevesArchives();
 });
 
+// Combine actifs + archivés pour un lookup synchrone par id (évite de
+// refaire une requête FutureProvider par élève dans les listes de cours).
+final elevesMapProvider = Provider<Map<int, Eleve>>((ref) {
+  final actifs = ref.watch(elevesActifsProvider).valueOrNull ?? [];
+  final archives = ref.watch(elevesArchivesProvider).valueOrNull ?? [];
+  return {
+    for (final e in [...actifs, ...archives]) e.elevesId: e,
+  };
+});
+
 final elevesServiceProvider = Provider<ElevesService>((ref) {
   return ElevesService(ref);
 });

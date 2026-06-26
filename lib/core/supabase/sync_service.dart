@@ -5,6 +5,7 @@ import '../database/app_database.dart';
 import '../database/daos/eleves_dao.dart';
 import '../database/daos/payeurs_dao.dart';
 import '../security/encryption_service.dart';
+import '../../shared/utils/money.dart';
 import 'auth_supabase_service.dart';
 
 class SyncService {
@@ -78,7 +79,7 @@ class SyncService {
         'tarifs_id': t.tarifsId,
         'user_id': userId,
         'duree': t.duree,
-        'prix': t.prix,
+        'prix': centimesToEuros(t.prix),
         'date_debut': t.dateDebut.toUtc().toIso8601String(),
         'date_fin': t.dateFin?.toUtc().toIso8601String(),
         'created_at': t.createdAt.toUtc().toIso8601String(),
@@ -153,7 +154,7 @@ class SyncService {
         'date_reelle': c.dateReelle?.toUtc().toIso8601String(),
         'duree_reelle': c.dureeReelle,
         'tarifs_id': c.tarifsId,
-        'montant': c.montant,
+        'montant': c.montant != null ? centimesToEuros(c.montant!) : null,
         'paye': c.paye,
         'paiement_especes': c.paiementEspeces,
         'date_paiement': c.datePaiement?.toUtc().toIso8601String(),
@@ -199,7 +200,7 @@ class SyncService {
         await db.into(db.tarifs).insertOnConflictUpdate(TarifsCompanion(
           tarifsId: Value(row['tarifs_id'] as int),
           duree: Value(row['duree'] as int),
-          prix: Value((row['prix'] as num).toDouble()),
+          prix: Value(eurosToCentimes((row['prix'] as num).toDouble())),
           dateDebut: Value(DateTime.parse(row['date_debut'] as String).toLocal()),
           dateFin: row['date_fin'] != null
               ? Value(DateTime.parse(row['date_fin'] as String).toLocal())
@@ -280,7 +281,7 @@ class SyncService {
           dureeReelle: Value(row['duree_reelle'] as int?),
           tarifsId: Value(row['tarifs_id'] as int?),
           montant: Value(row['montant'] != null
-              ? (row['montant'] as num).toDouble()
+              ? eurosToCentimes((row['montant'] as num).toDouble())
               : null),
           paye: Value(row['paye'] as bool),
           paiementEspeces: Value((row['paiement_especes'] as bool?) ?? false),

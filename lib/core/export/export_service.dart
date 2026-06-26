@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/database/app_database.dart';
+import '../../shared/utils/money.dart';
 
 class ExportService {
   ExportService._();
@@ -94,7 +95,7 @@ class ExportService {
         _formaterDate(c.datePrevue),
         c.dateReelle != null ? _formaterDate(c.dateReelle!) : '',
         c.dureeReelle ?? '',
-        c.montant?.toStringAsFixed(2) ?? '',
+        c.montant != null ? centimesToEuros(c.montant!).toStringAsFixed(2) : '',
         c.paye ? 'Oui' : 'Non',
         c.datePaiement != null ? _formaterDate(c.datePaiement!) : '',
         c.statut,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../shared/utils/money.dart';
 import '../providers/paiements_provider.dart';
 
 class DetailCoursEleveMoisScreen extends ConsumerWidget {
@@ -74,7 +75,7 @@ class DetailCoursEleveMoisScreen extends ConsumerWidget {
                         Row(
                           children: [
                             Text(
-                              '${c.montant!.toStringAsFixed(2)} €',
+                              '${formatCentimes(c.montant!)} €',
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500),
                             ),

@@ -5,6 +5,7 @@ import '../providers/tarifs_provider.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/validators/tarif_validator.dart';
+import '../../../shared/utils/money.dart';
 
 class TarifsScreen extends ConsumerStatefulWidget {
   const TarifsScreen({super.key});
@@ -71,7 +72,7 @@ class _TarifsScreenState extends ConsumerState<TarifsScreen> {
                                 : null,
                           ),
                           subtitle: Text(
-                            '${tarif.prix.toStringAsFixed(2)} €/h',
+                            '${formatCentimes(tarif.prix)} €/h',
                             style: _afficherArchives
                                 ? TextStyle(
                                     color: Theme.of(context)
@@ -134,9 +135,9 @@ class _TarifsScreenState extends ConsumerState<TarifsScreen> {
   Future<void> _creerTarifsParDefaut() async {
     final dateDebut = DateTime(2025, 9, 1);
     final dao = ref.read(tarifsDaoProvider);
-    await dao.creerNouveauTarif(30, 20.0, dateDebut);
-    await dao.creerNouveauTarif(45, 30.0, dateDebut);
-    await dao.creerNouveauTarif(60, 35.0, dateDebut);
+    await dao.creerNouveauTarif(30, eurosToCentimes(20.0), dateDebut);
+    await dao.creerNouveauTarif(45, eurosToCentimes(30.0), dateDebut);
+    await dao.creerNouveauTarif(60, eurosToCentimes(35.0), dateDebut);
   }
 
   Future<void> _reactiverTarif(Tarif tarif) async {
@@ -199,7 +200,7 @@ class _TarifsScreenState extends ConsumerState<TarifsScreen> {
       text: tarifActuel?.duree.toString() ?? '',
     );
     final prixCtrl = TextEditingController(
-      text: tarifActuel?.prix.toStringAsFixed(2) ?? '',
+      text: tarifActuel != null ? formatCentimes(tarifActuel.prix) : '',
     );
     DateTime dateDebut = tarifActuel?.dateDebut ?? DateTime.now();
     DateTime? dateFin = tarifActuel?.dateFin;
@@ -312,8 +313,9 @@ class _TarifsScreenState extends ConsumerState<TarifsScreen> {
 
     if (confirmer == true && context.mounted) {
       final duree = int.tryParse(dureeCtrl.text);
-      final prix = double.tryParse(prixCtrl.text.replaceAll(',', '.'));
-      if (duree == null || prix == null) return;
+      final prixEuros = double.tryParse(prixCtrl.text.replaceAll(',', '.'));
+      if (duree == null || prixEuros == null) return;
+      final prix = eurosToCentimes(prixEuros);
 
       if (tarifActuel != null) {
         await ref.read(tarifsDaoProvider).updateTarif(TarifsCompanion(

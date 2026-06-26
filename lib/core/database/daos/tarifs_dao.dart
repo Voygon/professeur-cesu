@@ -41,7 +41,7 @@ class TarifsDao extends DatabaseAccessor<AppDatabase> with _$TarifsDaoMixin {
     ).getSingleOrNull();
   }
 
-  Future<int> creerNouveauTarif(int duree, double nouveauPrix, DateTime dateChangement){
+  Future<int> creerNouveauTarif(int duree, int nouveauPrix, DateTime dateChangement){
     return transaction(() async {
       final ancien = await getTarifEnVigueur(duree, dateChangement);
 
@@ -89,13 +89,14 @@ class TarifsDao extends DatabaseAccessor<AppDatabase> with _$TarifsDaoMixin {
     ).go();
   }
 
-  Future<double?> calculerMontant(int dureeMinutes) async {
+  /// Retourne le montant en centimes.
+  Future<int?> calculerMontant(int dureeMinutes) async {
     final tarifExact = await getTarifEnVigueur(dureeMinutes, DateTime.now());
     if (tarifExact != null) return tarifExact.prix;
 
     final tarifHeure = await getTarifEnVigueur(60, DateTime.now());
     if (tarifHeure == null) return null;
 
-    return (dureeMinutes / 60) * tarifHeure.prix;
+    return ((dureeMinutes / 60) * tarifHeure.prix).round();
   }
 }

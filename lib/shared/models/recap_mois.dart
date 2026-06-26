@@ -1,9 +1,10 @@
 class RecapMois {
   final int nbCoursValides;
   final int nbCoursPayes;
-  final double montantTotal;
-  final double montantPaye;
-  final double montantRestant;
+  // Montants en centimes.
+  final int montantTotal;
+  final int montantPaye;
+  final int montantRestant;
   final int mois;
   final int annee;
 

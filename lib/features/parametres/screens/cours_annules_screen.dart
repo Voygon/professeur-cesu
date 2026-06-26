@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/database/app_database.dart';
-import '../../dashboard/providers/dashboard_provider.dart';
+import '../../eleves/providers/eleves_provider.dart';
 
 final _coursAnnulesListProvider = StreamProvider<List<Cour>>((ref) {
   return ref.watch(coursDaoProvider).watchCoursAnnules();
@@ -130,7 +130,7 @@ class _CarteCours extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eleveAsync = ref.watch(eleveParIdProvider(cour.elevesId));
+    final eleve = ref.watch(elevesMapProvider)[cour.elevesId];
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -142,17 +142,13 @@ class _CarteCours extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Nom de l'élève ──
-              eleveAsync.when(
-                loading: () => const SizedBox(height: 18),
-                error: (_, __) => const Text('Élève inconnu'),
-                data: (eleve) => Text(
-                  eleve != null
-                      ? '${eleve.prenom} ${eleve.nom}'
-                      : 'Élève inconnu',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
+              Text(
+                eleve != null
+                    ? '${eleve.prenom} ${eleve.nom}'
+                    : 'Élève inconnu',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 4),
               // ── Date et durée ──
@@ -197,8 +193,7 @@ class _CarteCours extends ConsumerWidget {
                 children: [
                   // Restaurer
                   OutlinedButton.icon(
-                    onPressed: () =>
-                        _restaurer(context, ref, eleveAsync.valueOrNull),
+                    onPressed: () => _restaurer(context, ref, eleve),
                     icon: const Icon(Icons.undo, size: 16),
                     label: const Text('Restaurer'),
                     style: OutlinedButton.styleFrom(

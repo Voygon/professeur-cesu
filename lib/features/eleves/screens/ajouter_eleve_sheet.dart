@@ -11,6 +11,7 @@ import '../../../shared/widgets/heure_picker.dart';
 import '../../eleves/providers/eleves_provider.dart';
 import '../../parametres/providers/tarifs_provider.dart';
 import '../../../shared/models/eleve_avec_payeur.dart';
+import '../../../shared/utils/money.dart';
 
 class AjouterEleveSheet extends ConsumerStatefulWidget {
   final EleveAvecPayeur? eleveAvecPayeur;
@@ -440,7 +441,7 @@ class _AjouterEleveSheetState extends ConsumerState<AjouterEleveSheet> {
             .map((t) => DropdownMenuItem(
                   value: t.duree,
                   child: Text(
-                      '${t.duree} min — ${t.prix.toStringAsFixed(2)} €'),
+                      '${t.duree} min — ${formatCentimes(t.prix)} €'),
                 ))
             .toList(),
         onChanged: tarifs.isEmpty
